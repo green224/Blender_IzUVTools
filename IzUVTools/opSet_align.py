@@ -1,4 +1,8 @@
 
+#
+# UV頂点を整列する機能を定義するモジュール
+#
+
 import bpy
 from mathutils import *
 import math
@@ -27,12 +31,12 @@ from .common import *
 
 #-------------------------------------------------------
 
-# UV頂点を整列する機能
+# 機能本体
 class OperatorSet(OperatorSet_Base):
 
-	# 選択頂点を8方向に整列する機能
+	# オペレータ本体
 	class OpImpl(Operator):
-		bl_idname = "object.izb_align_uv"
+		bl_idname = "object.izuv_align_uv"
 		bl_label = "Iz UV Tools: Align"
 		bl_options = {'REGISTER', 'UNDO'}
 
@@ -124,7 +128,8 @@ class OperatorSet(OperatorSet_Base):
 			for idx,i in enumerate(uvVerts):
 				i[0].uv = dctUVs[src2dctMap[idx]]
 		
-	class UI_PT_Impl(OperatorSet_Base.Panel_Base):
+	# UIパネル描画部分
+	class UI_PT_Iz_UV_Align(OperatorSet_Base.Panel_Base):
 		header_name = "Align"
 
 		def draw(self, context):
@@ -159,7 +164,7 @@ class OperatorSet(OperatorSet_Base):
 
 		# 登録対象のクラスリストを定義
 		self._classes = (
-			OperatorSet.UI_PT_Impl,
+			OperatorSet.UI_PT_Iz_UV_Align,
 			OperatorSet.OpImpl,
 		)
 

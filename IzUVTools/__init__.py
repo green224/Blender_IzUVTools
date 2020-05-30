@@ -3,6 +3,7 @@ UV展開用のこまごました機能集
 
 ショートカットキー
 	i: 選択頂点を整列
+	j: 選択頂点を直線状にリラックス
 """
 
 
@@ -10,7 +11,7 @@ UV展開用のこまごました機能集
 bl_info = {
 	"name" : "Iz UV tools",
 	"author" : "Shu",
-	"version" : (0,1),
+	"version" : (0,2),
     'blender': (2, 80, 0),
     "location": "UV Image Editor > Tools",
 	"description" : "Add some tools of uv",
@@ -25,7 +26,9 @@ bl_info = {
 if "bpy" in locals():
 	import imp
 	imp.reload(opSet_align)
+	imp.reload(opSet_straight_relax)
 from . import opSet_align
+from . import opSet_straight_relax
 
 
 import bpy
@@ -61,7 +64,11 @@ classes = (
 	PR_IzUV,
 )
 
-opSet_align_inst = opSet_align.OperatorSet(PR_IzUV)
+# 機能モジュールのインスタンス一覧
+opSet_Insts = [
+	opSet_align.OperatorSet(PR_IzUV),
+	opSet_straight_relax.OperatorSet(PR_IzUV),
+]
 
 
 #-------------------------------------------------------
@@ -77,8 +84,9 @@ def register_shortcut():
 			space_type='IMAGE_EDITOR',
 			region_type='WINDOW'
 		)
-		kmi = opSet_align_inst.register_shortcut(km)
-		addon_keymaps.append((km, kmi))
+		for ops in opSet_Insts:
+			kmi = ops.register_shortcut(km)
+			addon_keymaps.append((km, kmi))
 
 # ショートカットキー登録解除
 def unregister_shortcut():
@@ -92,14 +100,14 @@ def unregister_shortcut():
 def register():
 	for cls in classes:
 		bpy.utils.register_class(cls)
-	opSet_align_inst.register()
+	for ops in opSet_Insts: ops.register()
 	bpy.types.Scene.iz_uv_tool_property = bpy.props.PointerProperty(type=PR_IzUV)
 	register_shortcut()
 
 # プラグインをアンインストールしたときの処理
 def unregister():
 	unregister_shortcut()
-	opSet_align_inst.unregister()
+	for ops in reversed(opSet_Insts): ops.unregister()
 	for cls in reversed(classes):
 		bpy.utils.unregister_class(cls)
 	del bpy.types.Scene.iz_uv_tool_property

@@ -1,4 +1,9 @@
 
+#
+# Addonとしての1機能を定義するクラスの基底クラスを定義するモジュール
+#
+
+
 import bpy
 from mathutils import *
 import math
@@ -22,7 +27,8 @@ from bpy.props import (
 
 
 #-------------------------------------------------------
-# Addonとしての1機能を定義するクラスの基底クラス
+
+# 機能本体の基底クラス
 class OperatorSet_Base:
 
 	# パネル定義クラスの基底クラス
