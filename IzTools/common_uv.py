@@ -16,6 +16,9 @@ def getSelectedUVVerts():
 
 	for mesh in objDatas:
 		
+		# メッシュ以外は除外
+		if not hasattr(mesh,"polygons"): continue
+		
 		# UV番号と頂点番号の組み合わせを構築
 		uvAndVertIdLst = []
 		for face in mesh.polygons:
@@ -46,7 +49,7 @@ def getMinMaxUV(uvs):
 	return (minUV, maxUV, maxUV-minUV, (minUV+maxUV)/2)
 
 # UV頂点リストから、座標が最も散らばっている方向を8方向から算出する
-def getMostScatteredDir(uvs, withDiag):
+def getMostScatteredUVDir(uvs, withDiag):
 	minmaxPara = getMinMaxUV(uvs);
 	if withDiag:
 		minmaxDiag = getMinMaxUV([Vector((i.x+i.y,i.y-i.x)) for i in uvs]);

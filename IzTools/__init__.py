@@ -1,34 +1,37 @@
 """
-UV展開用のこまごました機能集
+こまごました便利機能集
 
 ショートカットキー
-	i: 選択頂点を整列
-	j: 選択頂点を直線状にリラックス
+	UV展開用
+		i: 選択頂点を整列
+		j: 選択頂点を直線状にリラックス
 """
 
 
 # プラグインに関する情報
 bl_info = {
-	"name" : "Iz UV tools",
+	"name" : "Iz Tools",
 	"author" : "Shu",
-	"version" : (0,2),
+	"version" : (0,3),
     'blender': (2, 80, 0),
-    "location": "UV Image Editor > Tools",
-	"description" : "Add some tools of uv",
+    "location": "UV Image Editor > Tools, 3D View > Toolbox",
+	"description" : "Add some tools of uv and bone and etc.",
 	"warning" : "",
 	"wiki_url" : "",
 	"tracker_url" : "",
-	"category" : "UV"
+	"category" : "Object"
 }
 
 
 
 if "bpy" in locals():
 	import imp
-	imp.reload(opSet_align)
-	imp.reload(opSet_straight_relax)
-from . import opSet_align
-from . import opSet_straight_relax
+	imp.reload(common_uv)
+	imp.reload(opSet_base)
+	imp.reload(opSet_uv_align)
+	imp.reload(opSet_uv_straight_relax)
+from . import opSet_uv_align
+from . import opSet_uv_straight_relax
 
 
 import bpy
@@ -56,18 +59,18 @@ from bpy.props import (
 #-------------------------------------------------------
 
 # Addon全体のGlobal保存パラメータ
-class PR_IzUV(bpy.types.PropertyGroup):
+class PR_IzTools(bpy.types.PropertyGroup):
 	pass
-PR_IzUV.__annotations__ = {}
+PR_IzTools.__annotations__ = {}
 
 classes = (
-	PR_IzUV,
+	PR_IzTools,
 )
 
 # 機能モジュールのインスタンス一覧
 opSet_Insts = [
-	opSet_align.OperatorSet(PR_IzUV),
-	opSet_straight_relax.OperatorSet(PR_IzUV),
+	opSet_uv_align.OperatorSet(PR_IzTools),
+	opSet_uv_straight_relax.OperatorSet(PR_IzTools),
 ]
 
 
@@ -101,7 +104,7 @@ def register():
 	for cls in classes:
 		bpy.utils.register_class(cls)
 	for ops in opSet_Insts: ops.register()
-	bpy.types.Scene.iz_uv_tool_property = bpy.props.PointerProperty(type=PR_IzUV)
+	bpy.types.Scene.iz_uv_tool_property = bpy.props.PointerProperty(type=PR_IzTools)
 	register_shortcut()
 
 # プラグインをアンインストールしたときの処理

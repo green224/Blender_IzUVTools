@@ -1,2 +1,2 @@
-# Blender_IzUVTools
-UV tools addon for blender
+# Blender_IzTools
+Misc Tools addon for blender

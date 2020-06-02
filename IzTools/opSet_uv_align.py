@@ -26,7 +26,7 @@ from bpy.props import (
 
 
 from .opSet_base import *
-from .common import *
+from .common_uv import *
 
 
 #-------------------------------------------------------
@@ -36,8 +36,8 @@ class OperatorSet(OperatorSet_Base):
 
 	# オペレータ本体
 	class OpImpl(Operator):
-		bl_idname = "object.izuv_align_uv"
-		bl_label = "Iz UV Tools: Align"
+		bl_idname = "object.izt_align_uv"
+		bl_label = "Iz Tools: UV: Align"
 		bl_options = {'REGISTER', 'UNDO'}
 
 		dir: bpy.props.EnumProperty(name="dirType",
@@ -73,7 +73,7 @@ class OperatorSet(OperatorSet_Base):
 			# 整列方向の自動算出の場合は、方向を決定する
 			procDir = self.dir
 			if (procDir == "Auto" or procDir == "AutoWithDiag"):
-				procDir = getMostScatteredDir(dctUVs, procDir == "AutoWithDiag")
+				procDir = getMostScatteredUVDir(dctUVs, procDir == "AutoWithDiag")
 
 			# 斜め整列の場合は斜めに座標変換しておく
 			if (procDir=="/" or procDir=="\\"):
@@ -130,7 +130,9 @@ class OperatorSet(OperatorSet_Base):
 		
 	# UIパネル描画部分
 	class UI_PT_Iz_UV_Align(OperatorSet_Base.Panel_Base):
-		header_name = "Align"
+		bl_space_type = "IMAGE_EDITOR"
+		bl_region_type = "UI"
+		header_name = "Align UV"
 
 		def draw(self, context):
 			layout = self.layout

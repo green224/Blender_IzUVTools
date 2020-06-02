@@ -34,9 +34,7 @@ class OperatorSet_Base:
 	# パネル定義クラスの基底クラス
 	class Panel_Base(Panel):
 		bl_label = " "
-		bl_space_type = "IMAGE_EDITOR"
-		bl_region_type = "UI"
-		bl_category = "IzUVTools"
+		bl_category = "IzTools"
 
 		def draw_header(self, _):
 			layout = self.layout
