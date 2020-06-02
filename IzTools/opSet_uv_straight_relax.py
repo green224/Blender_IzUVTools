@@ -118,7 +118,7 @@ class OperatorSet(OperatorSet_Base):
 				i[0].uv = kpdUVs[src2dctMap[idx]]
 		
 	# UIパネル描画部分
-	class UI_PT_Iz_UV_Straight_Relax(OperatorSet_Base.Panel_Base):
+	class UI_PT_Izt_UV_Straight_Relax(OperatorSet_Base.Panel_Base):
 		bl_space_type = "IMAGE_EDITOR"
 		bl_region_type = "UI"
 		header_name = "Straight Relax UV"
@@ -135,13 +135,18 @@ class OperatorSet(OperatorSet_Base):
 
 		# 登録対象のクラスリストを定義
 		self._classes = (
-			OperatorSet.UI_PT_Iz_UV_Straight_Relax,
+			OperatorSet.UI_PT_Izt_UV_Straight_Relax,
 			OperatorSet.OpImpl,
 		)
 
 	# ショートカット登録処理
-	def register_shortcut(self, keymap):
-		kmi = keymap.keymap_items.new(
+	def register_shortcut(self, kc):
+		km = kc.keymaps.new(
+			"Image Generic",
+			space_type='IMAGE_EDITOR',
+			region_type='WINDOW'
+		)
+		kmi = km.keymap_items.new(
 			OperatorSet.OpImpl.bl_idname,
 			'J',
 			'PRESS',
@@ -150,5 +155,5 @@ class OperatorSet(OperatorSet_Base):
 			alt=False
 		)
 		kmi.active = True
-		return kmi
+		return km, kmi
 

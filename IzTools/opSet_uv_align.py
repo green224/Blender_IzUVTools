@@ -129,7 +129,7 @@ class OperatorSet(OperatorSet_Base):
 				i[0].uv = dctUVs[src2dctMap[idx]]
 		
 	# UIパネル描画部分
-	class UI_PT_Iz_UV_Align(OperatorSet_Base.Panel_Base):
+	class UI_PT_Izt_UV_Align(OperatorSet_Base.Panel_Base):
 		bl_space_type = "IMAGE_EDITOR"
 		bl_region_type = "UI"
 		header_name = "Align UV"
@@ -166,7 +166,7 @@ class OperatorSet(OperatorSet_Base):
 
 		# 登録対象のクラスリストを定義
 		self._classes = (
-			OperatorSet.UI_PT_Iz_UV_Align,
+			OperatorSet.UI_PT_Izt_UV_Align,
 			OperatorSet.OpImpl,
 		)
 
@@ -182,8 +182,13 @@ class OperatorSet(OperatorSet_Base):
 		props.__annotations__["align_keep_dist_rate"] = a
 
 	# ショートカット登録処理
-	def register_shortcut(self, keymap):
-		kmi = keymap.keymap_items.new(
+	def register_shortcut(self, kc):
+		km = kc.keymaps.new(
+			"Image Generic",
+			space_type='IMAGE_EDITOR',
+			region_type='WINDOW'
+		)
+		kmi = km.keymap_items.new(
 			OperatorSet.OpImpl.bl_idname,
 			'I',
 			'PRESS',
@@ -193,5 +198,5 @@ class OperatorSet(OperatorSet_Base):
 		)
 		kmi.properties.dir = "Auto"
 		kmi.active = True
-		return kmi
+		return km, kmi
 
