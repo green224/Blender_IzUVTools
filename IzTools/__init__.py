@@ -28,8 +28,12 @@ if "bpy" in locals():
 	import imp
 	imp.reload(common_uv)
 	imp.reload(opSet_base)
+	imp.reload(opSet_pose_keying_all)
 	imp.reload(opSet_uv_align)
 	imp.reload(opSet_uv_straight_relax)
+from . import common_uv
+from . import opSet_base
+from . import opSet_pose_keying_all
 from . import opSet_uv_align
 from . import opSet_uv_straight_relax
 
@@ -69,6 +73,7 @@ classes = (
 
 # 機能モジュールのインスタンス一覧
 opSet_Insts = [
+	opSet_pose_keying_all.OperatorSet(PR_IzTools),
 	opSet_uv_align.OperatorSet(PR_IzTools),
 	opSet_uv_straight_relax.OperatorSet(PR_IzTools),
 ]
@@ -82,14 +87,9 @@ def register_shortcut():
 	wm = bpy.context.window_manager
 	kc = wm.keyconfigs.addon
 	if kc:
-		km = kc.keymaps.new(
-			"Image Generic",
-			space_type='IMAGE_EDITOR',
-			region_type='WINDOW'
-		)
 		for ops in opSet_Insts:
-			kmi = ops.register_shortcut(km)
-			addon_keymaps.append((km, kmi))
+			km, kmi = ops.register_shortcut(kc)
+			if km != None: addon_keymaps.append((km, kmi))
 
 # ショートカットキー登録解除
 def unregister_shortcut():

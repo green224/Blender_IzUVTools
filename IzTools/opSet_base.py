@@ -52,4 +52,8 @@ class OperatorSet_Base:
 		for cls in reversed(self._classes):
 			bpy.utils.unregister_class(cls)
 
+	# ショートカット登録処理
+	def register_shortcut(self, kc):
+		return None, None
+
 
