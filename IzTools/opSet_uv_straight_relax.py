@@ -31,7 +31,7 @@ from bpy.props import (
 
 
 from .opSet_base import *
-from .common import *
+from .common_uv import *
 
 
 #-------------------------------------------------------
@@ -41,8 +41,8 @@ class OperatorSet(OperatorSet_Base):
 
 	# オペレータ本体
 	class OpImpl(Operator):
-		bl_idname = "object.izuv_straight_relax"
-		bl_label = "Iz UV Tools: Straight Relax"
+		bl_idname = "object.izt_straight_relax_uv"
+		bl_label = "Iz Tools: UV: Straight Relax"
 		bl_options = {'REGISTER', 'UNDO'}
 
 		def execute(self, context):
@@ -119,7 +119,9 @@ class OperatorSet(OperatorSet_Base):
 		
 	# UIパネル描画部分
 	class UI_PT_Iz_UV_Straight_Relax(OperatorSet_Base.Panel_Base):
-		header_name = "Straight Relax"
+		bl_space_type = "IMAGE_EDITOR"
+		bl_region_type = "UI"
+		header_name = "Straight Relax UV"
 
 		def draw(self, context):
 			layout = self.layout
