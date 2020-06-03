@@ -40,7 +40,7 @@ class OperatorSet(OperatorSet_Base):
 		bl_label = "Iz Tools: UV: Align"
 		bl_options = {'REGISTER', 'UNDO'}
 
-		dir: bpy.props.EnumProperty(name="dirType",
+		dir: EnumProperty(name="dirType",
 				default="Auto",
 				items=[
 				('Auto','Auto','Auto'),
@@ -171,7 +171,7 @@ class OperatorSet(OperatorSet_Base):
 		)
 
 		# Global保存パラメータを定義
-		a = bpy.props.FloatProperty(
+		a = FloatProperty(
 			name="keep uv distance",
 			description="Keep the distance of uv location between vertices",
 			default=1,
