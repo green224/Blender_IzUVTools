@@ -66,7 +66,7 @@ class OperatorSet(OperatorSet_Base):
 
 					isOk = True
 					for k in range(len(uvs)):
-						if k==i or k==j: continue
+						if k==i or k==j or uvs[k]==a or uvs[k]==b: continue
 
 						if rSqr < ( uvs[k] - ctr ).length_squared:
 							isOk = False
@@ -88,11 +88,16 @@ class OperatorSet(OperatorSet_Base):
 				if (not i in dctUVs): dctUVs.append((i[0].copy(), i[1].copy()))
 
 			# 対象頂点が1以下の場合は何もしない
-			if len(dctUVs) <= 1: return
+			if len(dctUVs) <= 1:
+				print( "There is only one target vertex" );
+				return
 
 			# 方向を決定する
 			dir = self.calcLineupDir([i[0] for i in uvLst])
-			if dir is None: return		#方向が定義できない
+			if dir is None:
+				print( "Direction cannot be defined" );
+				for i in uvLst: print(i[0])
+				return		#方向が定義できない
 
 			# 整列方向に沿って、dctUVsをソートする
 			dctUVs.sort(key=lambda i: i[0].dot(dir))
