@@ -1,0 +1,11 @@
+{
+  "python.defaultInterpreterPath": "F:\\BlenderPortable\\2.93.2\\2.93\\python\\bin",
+  "python.autoComplete.extraPaths": [
+    "F:\\BlenderPortable\\2.93.2\\2.93\\scripts\\modules",
+    "F:\\BlenderPortable\\2.93.2\\2.93\\python\\lib\\site-packages"
+  ],
+  "python.analysis.extraPaths": [
+    "F:\\BlenderPortable\\2.93.2\\2.93\\scripts\\modules",
+    "F:\\BlenderPortable\\2.93.2\\2.93\\python\\lib\\site-packages"
+  ]
+}
