@@ -9,6 +9,7 @@
 
 
 import bpy
+import bmesh
 from mathutils import *
 import math
 
@@ -46,9 +47,9 @@ class OperatorSet(OperatorSet_Base):
 		bl_options = {'REGISTER', 'UNDO'}
 
 		def execute(self, context):
-			bpy.ops.object.mode_set(mode='OBJECT')
+#			bpy.ops.object.mode_set(mode='OBJECT')
 			self.proc()
-			bpy.ops.object.mode_set(mode='EDIT')
+#			bpy.ops.object.mode_set(mode='EDIT')
 			return {'FINISHED'}
 
 		# UV座標リストから、それらのUVがなんとなく並んでいる方向を計算する
@@ -79,7 +80,8 @@ class OperatorSet(OperatorSet_Base):
 
 		def proc(self):
 
-			uvVerts = getSelectedUVVerts()
+			bmList = getEditingBMeshList()
+			uvVerts = getSelectedUVVerts( [bm for _,bm in bmList] )
 
 			# UV座標と頂点座標のみの処理用配列を生成
 			uvLst = [(i.uv, j.co) for i,j in uvVerts]
@@ -121,6 +123,10 @@ class OperatorSet(OperatorSet_Base):
 			# 元のUVに反映
 			for idx,i in enumerate(uvVerts):
 				i[0].uv = kpdUVs[src2dctMap[idx]]
+
+			# BMeshを反映
+			for mesh,_ in bmList:
+				bmesh.update_edit_mesh(mesh)
 		
 	# UIパネル描画部分
 	class UI_PT_Izt_UV_Straight_Relax(OperatorSet_Base.Panel_Base):

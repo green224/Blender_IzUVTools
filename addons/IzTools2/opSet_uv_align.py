@@ -4,6 +4,7 @@
 #
 
 import bpy
+import bmesh
 from mathutils import *
 import math
 
@@ -53,13 +54,14 @@ class OperatorSet(OperatorSet_Base):
 				options={'HIDDEN'})
 
 		def execute(self, context):
-			bpy.ops.object.mode_set(mode='OBJECT')
+#			bpy.ops.object.mode_set(mode='OBJECT')
 			self.proc( context.scene.iz_uv_tool_property )
-			bpy.ops.object.mode_set(mode='EDIT')
+#			bpy.ops.object.mode_set(mode='EDIT')
 			return {'FINISHED'}
 
 		def proc(self, param):
-			uvVerts = getSelectedUVVerts()
+			bmList = getEditingBMeshList()
+			uvVerts = getSelectedUVVerts( [bm for _,bm in bmList] )
 
 			# UV座標のみの処理用配列を生成
 			uvLst = [i.uv for i,j in uvVerts]
@@ -117,7 +119,7 @@ class OperatorSet(OperatorSet_Base):
 				for i in dctUVs: i.x = center.x
 
 			# 斜め整列の場合は元の座標に座標変換して戻す
-			if (procDir is "/" or procDir is "\\"):
+			if (procDir == "/" or procDir == "\\"):
 				for i in dctUVs:
 					x1 = (i.x - i.y)/2
 					y1 = (i.x + i.y)/2
@@ -127,6 +129,10 @@ class OperatorSet(OperatorSet_Base):
 			# 元のUVに反映
 			for idx,i in enumerate(uvVerts):
 				i[0].uv = dctUVs[src2dctMap[idx]]
+
+			# BMeshを反映
+			for mesh,_ in bmList:
+				bmesh.update_edit_mesh(mesh)
 		
 	# UIパネル描画部分
 	class UI_PT_Izt_UV_Align(OperatorSet_Base.Panel_Base):

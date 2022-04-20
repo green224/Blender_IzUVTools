@@ -1,13 +1,12 @@
 
 import bpy
+import bmesh
 from mathutils import *
 import math
 
 
-
-# 現在選択している(UV,頂点)の組のリストを得る
-def getSelectedUVVerts():
-
+# 現在編集しているオブジェクトのDataとBMeshリストを得る
+def getEditingBMeshList():
 	result = []
 
 	# 選択中の全オブジェクトに対して行う
@@ -15,25 +14,31 @@ def getSelectedUVVerts():
 	objDatas = set([i.data for i in objs])
 
 	for mesh in objDatas:
-		
+
 		# メッシュ以外は除外
 		if not hasattr(mesh,"polygons"): continue
+
+		# Editモード外のメッシュは除外
+		if not mesh.is_editmode: continue
 		
-		# UV番号と頂点番号の組み合わせを構築
-		uvAndVertIdLst = []
-		for face in mesh.polygons:
-			for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
-				uvAndVertIdLst.append( (vert_idx, loop_idx) )
+		# BMeshから、UV番号ごとの選択状態を得る
+		bm = bmesh.from_edit_mesh(mesh)
+		result.append((mesh, bm))
+	
+	return result
 
-		# UV番号から頂点へのマップを構築
-		uv2vert = [0]*len(uvAndVertIdLst)
-		for vert_idx, loop_idx in uvAndVertIdLst:
-			uv2vert[ loop_idx ] = mesh.vertices[ vert_idx ]
+# bMeshリストを引数に受け取り、現在選択している(UV,頂点)の組のリストを得る。
+def getSelectedUVVerts(bMeshes):
 
-		## UV情報と頂点情報のタプルを格納
-		for idx, dat in enumerate(mesh.uv_layers.active.data):
-			if (dat.select):
-				result.append( (dat, uv2vert[idx]) )
+	result = []
+
+	for bm in bMeshes:
+		uv_layer = bm.loops.layers.uv.active
+		for face in bm.faces:
+			for loop in face.loops:
+				## 選択されているUVに対して、UV情報と頂点情報のタプルを格納
+				uv = loop[uv_layer]
+				if uv.select: result.append( (uv, loop.vert) )
 
 	return result
 
