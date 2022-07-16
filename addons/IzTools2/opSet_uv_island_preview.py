@@ -25,6 +25,7 @@ from bpy.props import (
 		FloatProperty,
 		EnumProperty,
 		IntProperty,
+		FloatVectorProperty,
 		)
 
 import gpu
@@ -120,6 +121,7 @@ class OperatorSet(OperatorSet_Base):
 			# レンダリング先のテクスチャサイズ
 			param = context.scene.iz_uv_tool_property
 			texSize = 2 ** param.island_preview_reso_level
+			overlayCol = param.island_preview_overlay_color
 
 			# 作業用オフスクリーンバッファの作成
 			if cls.__offscreen0 is None or cls.__offscreen0.width != texSize:
@@ -136,11 +138,15 @@ class OperatorSet(OperatorSet_Base):
 			indices_tri = []
 			indices_line = []
 			for bm in bMeshes:
+				# 移動などの編集とかち合うと、bMeshのreadonly参照を行うだけで
+				# bMesh自体が破壊されるという不具合が起きる（多分バグ?）ので
+				# ここでは毎回bMesh丸ごとコピーしたものを参照するようにする。
 				bm = bm.copy()
+
 				uv_layer = bm.loops.layers.uv.active
 				for face in bm.faces:
 					i0 = len(uvs)
-#					if face.lolen(ops) < 3: break	これは無くても一応大丈夫
+#					if len(face.loops) < 3: break	これは無くても一応大丈夫
 
 					tris = [0,0,0]
 					for loop in face.loops:
@@ -179,7 +185,7 @@ class OperatorSet(OperatorSet_Base):
 				gpu.state.face_culling_set("NONE")
 				cls.__shader_Offsc.bind()
 				cls.__shader_Offsc.uniform_float("texSize", texSize)
-				cls.__shader_Offsc.uniform_float("color", (1,0,0,1))
+				cls.__shader_Offsc.uniform_float("color", (overlayCol[0],overlayCol[1],overlayCol[2],1))
 				cls.__shader_Offsc.uniform_float("pixelOffset", (0,0))
 				batch_Tri.draw(cls.__shader_Offsc)
 				for pixelOfs in pixelOffsets:
@@ -266,6 +272,9 @@ class OperatorSet(OperatorSet_Base):
 			column.separator()
 
 			row = column.row()
+			row.prop(param, "island_preview_overlay_color")
+
+			row = column.row()
 			if OperatorSet.OpImpl.is_running():
 				row.operator(OperatorSet.OpImpl.bl_idname, text="Hide", icon="PAUSE")
 			else:
@@ -281,14 +290,23 @@ class OperatorSet(OperatorSet_Base):
 		)
 
 		# Global保存パラメータを定義
-		a = IntProperty(
+		prm_resoLv = IntProperty(
 			name="reso level",
 			description="Texture Resolution Level",
 			default=9,
 			min=4,
 			max=12,
 		)
-		props.island_preview_reso_level: a
-		props.__annotations__["island_preview_reso_level"] = a
+		prm_overlayCol = FloatVectorProperty(
+			name="overlay color",
+			description="Island Overlay Color",
+			subtype="COLOR",
+			default=[1,0,0],
+            min=0, max=1,
+		)
+		props.island_preview_reso_level: prm_resoLv
+		props.island_preview_overlay_color: prm_overlayCol
+		props.__annotations__["island_preview_reso_level"] = prm_resoLv
+		props.__annotations__["island_preview_overlay_color"] = prm_overlayCol
 
 
