@@ -213,6 +213,7 @@ class OperatorSet(OperatorSet_Base):
 				fragment_shader = '''
 					uniform sampler2D image;
 					uniform float texSize;
+					uniform float fillColRate;
 
 					in vec2 uvInterp;
 					out vec4 FragColor;
@@ -236,7 +237,7 @@ class OperatorSet(OperatorSet_Base):
 						FragColor =
 							isSame(c0,c1) && isSame(c0,c2) &&
 							isSame(c0,c3) && isSame(c0,c4)
-							? vec4(0,0,0,0) : c0;
+							? c0*fillColRate : c0;
 					}
 				'''
 				cls.__shader_ImgEdt = gpu.types.GPUShader(vertex_shader, fragment_shader)
@@ -255,6 +256,7 @@ class OperatorSet(OperatorSet_Base):
 			# レンダリング先のテクスチャサイズ
 			param = context.scene.iz_uv_tool_property
 			texSize = 2 ** param.island_preview_reso_level
+			fillColRate = param.island_preview_fill_color_rate
 
 			fb = gpu.state.active_framebuffer_get()
 			gpu.state.blend_set("ADDITIVE")
@@ -265,6 +267,7 @@ class OperatorSet(OperatorSet_Base):
 #			bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
 #			bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_NEAREST)
 			cls.__shader_ImgEdt.uniform_float("texSize", texSize)
+			cls.__shader_ImgEdt.uniform_float("fillColRate", fillColRate)
 #			cls.__shader_ImgEdt.uniform_float("viewportSize", (viewportW, viewportH))
 			cls.__batch_ImgEdt.draw(cls.__shader_ImgEdt)
 
@@ -291,6 +294,8 @@ class OperatorSet(OperatorSet_Base):
 
 			row = column.row()
 			row.prop(param, "island_preview_overlay_color")
+			row = column.row()
+			row.prop(param, "island_preview_fill_color_rate", slider=True)
 
 			row = column.row()
 			if OperatorSet.OpImpl.is_running():
@@ -317,14 +322,22 @@ class OperatorSet(OperatorSet_Base):
 		)
 		prm_overlayCol = FloatVectorProperty(
 			name="overlay color",
-			description="Island Overlay Color",
+			description="Island overlay Color",
 			subtype="COLOR",
 			default=[0,0.23,0.5],
             min=0, max=1,
 		)
+		prm_fillColRate = FloatProperty(
+			name="fill color rate",
+			description="Island fill Color Rate",
+			default=0,
+            min=0, max=1,
+		)
 		props.island_preview_reso_level: prm_resoLv
 		props.island_preview_overlay_color: prm_overlayCol
+		props.island_preview_fill_color_rate: prm_fillColRate
 		props.__annotations__["island_preview_reso_level"] = prm_resoLv
 		props.__annotations__["island_preview_overlay_color"] = prm_overlayCol
+		props.__annotations__["island_preview_fill_color_rate"] = prm_fillColRate
 
 
