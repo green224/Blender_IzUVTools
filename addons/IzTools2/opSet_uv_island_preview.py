@@ -201,15 +201,13 @@ class OperatorSet(OperatorSet_Base):
 					// ModelViewProjectionMatrix : source/blender/gpu/shaders/gpu_shader_2D_vert.glsl
 					uniform mat4 ModelViewProjectionMatrix;
 
-					in vec2 position;
 					in vec2 uv;
-
 					out vec2 uvInterp;
 
 					void main()
 					{
 						uvInterp = uv;
-						gl_Position = ModelViewProjectionMatrix * vec4(position, 0.0, 1.0);
+						gl_Position = ModelViewProjectionMatrix * vec4(uv, 0.0, 1.0);
 					}
 				'''
 				fragment_shader = '''
@@ -219,21 +217,40 @@ class OperatorSet(OperatorSet_Base):
 					in vec2 uvInterp;
 					out vec4 FragColor;
 
-					void main()
-					{
+					vec4 fetchColor(vec2 offset) {
 						// gpuモジュールにはフィルタリングの設定がないので
 						// シェーダ側でポイントフィルタのように取得するように加工する
-						FragColor = textureLod( image, (floor(uvInterp*texSize)+0.5)/texSize, 0 );
+						return textureLod(
+							image, (floor(uvInterp*texSize)+0.5+offset)/texSize, 0 );
+					}
+					bool isSame(vec4 c0, vec4 c1) {
+						return c0.x==c1.x && c0.y==c1.y && c0.z==c1.z && c0.w==c1.w;
+					}
+
+					void main() {
+						vec4 c0 = fetchColor(vec2(0,0));
+						vec4 c1 = fetchColor(vec2(1,0));
+						vec4 c2 = fetchColor(vec2(-1,0));
+						vec4 c3 = fetchColor(vec2(0,1));
+						vec4 c4 = fetchColor(vec2(0,-1));
+						FragColor =
+							isSame(c0,c1) && isSame(c0,c2) &&
+							isSame(c0,c3) && isSame(c0,c4)
+							? vec4(0,0,0,0) : c0;
 					}
 				'''
 				cls.__shader_ImgEdt = gpu.types.GPUShader(vertex_shader, fragment_shader)
 				cls.__batch_ImgEdt = batch_for_shader(
 					cls.__shader_ImgEdt, 'TRI_FAN',
 					{
-						"position": ((0, 0), (1, 0), (1, 1), (0, 1)),
 						"uv": ((0, 0), (1, 0), (1, 1), (0, 1)),
 					},
 				)
+
+			# レンダリング先のビューポートサイズ
+			viewport = gpu.state.viewport_get()
+			viewportW = viewport[2]-viewport[0]
+			viewportH = viewport[3]-viewport[1]
 
 			# レンダリング先のテクスチャサイズ
 			param = context.scene.iz_uv_tool_property
@@ -248,6 +265,7 @@ class OperatorSet(OperatorSet_Base):
 #			bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
 #			bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_NEAREST)
 			cls.__shader_ImgEdt.uniform_float("texSize", texSize)
+#			cls.__shader_ImgEdt.uniform_float("viewportSize", (viewportW, viewportH))
 			cls.__batch_ImgEdt.draw(cls.__shader_ImgEdt)
 
 	# UIパネル描画部分
@@ -293,7 +311,7 @@ class OperatorSet(OperatorSet_Base):
 		prm_resoLv = IntProperty(
 			name="reso level",
 			description="Texture Resolution Level",
-			default=9,
+			default=8,
 			min=4,
 			max=12,
 		)
@@ -301,7 +319,7 @@ class OperatorSet(OperatorSet_Base):
 			name="overlay color",
 			description="Island Overlay Color",
 			subtype="COLOR",
-			default=[1,0,0],
+			default=[0,0.23,0.5],
             min=0, max=1,
 		)
 		props.island_preview_reso_level: prm_resoLv
