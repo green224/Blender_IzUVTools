@@ -33,6 +33,7 @@ if "bpy" in locals():
 	imp.reload(opSet_uv_align)
 	imp.reload(opSet_uv_straight_relax)
 	imp.reload(opSet_uv_island_preview)
+	imp.reload(opSet_img_paint_brush)
 	imp.reload(opSet_view3d_viewsel_flat)
 from . import common_uv
 from . import opSet_base
@@ -41,6 +42,7 @@ from . import opSet_pose_trans_lock_all
 from . import opSet_uv_align
 from . import opSet_uv_straight_relax
 from . import opSet_uv_island_preview
+from . import opSet_img_paint_brush
 from . import opSet_view3d_viewsel_flat
 
 
@@ -84,6 +86,7 @@ opSet_Insts = [
 	opSet_uv_align.OperatorSet(PR_IzTools),
 	opSet_uv_straight_relax.OperatorSet(PR_IzTools),
 	opSet_uv_island_preview.OperatorSet(PR_IzTools),
+	opSet_img_paint_brush.OperatorSet(PR_IzTools),
 	opSet_view3d_viewsel_flat.OperatorSet(PR_IzTools),
 ]
 
