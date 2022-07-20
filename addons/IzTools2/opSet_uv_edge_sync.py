@@ -249,6 +249,32 @@ class OperatorSet(OperatorSet_Base):
 
 		super().unregister()
 
+	# ショートカット登録処理
+	def register_shortcut(self, kc):
+		km = kc.keymaps.new(
+			"Image Generic",
+			space_type='IMAGE_EDITOR',
+			region_type='WINDOW'
+		)
+		kmi = km.keymap_items.new(
+			OperatorSet.OpImpl.bl_idname,
+			'K',
+			'PRESS',
+			shift=False,
+			ctrl=False,
+			alt=False
+		)
+		kmi.active = True
+		return km, kmi
+
+
+
+	# 描画ハンドラ
+	__drawHdl = None
+
+	# シェーダおよび描画用バッチ
+	__shader = None
+
 	def __init__(self, props):
 		super().__init__()
 
@@ -276,14 +302,6 @@ class OperatorSet(OperatorSet_Base):
 		props.edge_sync_alpha: prm_alpha
 		props.__annotations__["edge_sync_color"] = prm_color
 		props.__annotations__["edge_sync_alpha"] = prm_alpha
-
-
-
-	# 描画ハンドラ
-	__drawHdl = None
-
-	# シェーダおよび描画用バッチ
-	__shader = None
 
 	# 描画処理本体
 	@classmethod
