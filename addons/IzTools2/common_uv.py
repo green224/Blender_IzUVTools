@@ -69,3 +69,12 @@ def getMostScatteredUVDir(uvs, withDiag):
 	if dir0<dir1: return "|"
 	return "-"
 
+
+
+# 各種数学用ユーティリティー
+def clamp(x, smallest, largest): return max(smallest, min(x, largest))
+def saturate(x): return clamp(x, 0, 1)
+def frac(x):
+	result = math.modf(x)[0]
+	if result < 0: return saturate(1 + result)
+	return result
