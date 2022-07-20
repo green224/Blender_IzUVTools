@@ -1,7 +1,7 @@
 
 #
-# UVの接続エッジ部分を、同じピクセル数になるように揃える機能
-# 接続エッジの可視化も行う
+# UVの接続エッジ部分を、テクスチャが完全につながるように補正する機能。
+# 接続エッジの可視化も行う。
 #
 
 
@@ -60,8 +60,16 @@ class OperatorSet(OperatorSet_Base):
 			# 選択中エッジに対応する非選択エッジがない場合は、何もしない
 			if len(selUVs) == 0: return {'CANCELLED'}
 
-			param = context.scene.iz_uv_tool_property
-			resoSize = 2 ** param.edge_sync_reso_level
+			# PixelCenterFitの場合は、この操作でもそれを適応するために、
+			# 表示画像から解像度を取得しておく
+			imgSize = None
+			imgEditor = context.area.spaces[0]
+			if imgEditor.uv_editor and imgEditor.uv_editor.pixel_snap_mode == "CENTER":
+				if imgEditor.image:
+					imgSize = Vector((
+						imgEditor.image.size[0],
+						imgEditor.image.size[1]
+					))
 
 			# まず、操作対象エッジの中心位置と、
 			# 操作対象エッジが参照元エッジをどれだけ回転させたものに一致
@@ -132,22 +140,25 @@ class OperatorSet(OperatorSet_Base):
 			srcCenter /= (aglCnt[0] + aglCnt[1] + aglCnt[2] + aglCnt[3]) * 2
 			dstCenter /= (aglCnt[0] + aglCnt[1] + aglCnt[2] + aglCnt[3]) * 2
 
-			# 参照元中央位置のテクセル内座標を得る
-			srcCenterInTexel = Vector((
-				frac( srcCenter.x * resoSize ),
-				frac( srcCenter.y * resoSize )
-			))
+			# ピクセル内位置を考慮した、操作先中央位置を計算
+			resultDstCenter = dstCenter
+			if imgSize:
+				# 参照元中央位置のテクセル内座標を得る
+				srcCenterInTexel = Vector((
+					frac( srcCenter.x * imgSize.x ),
+					frac( srcCenter.y * imgSize.y )
+				))
 
-			# 操作対象の処理結果の中央位置テクセル内座標を得る
-			dstCenterInTexel = rotDstPos(srcCenterInTexel - Vector((0.5, 0.5)))
-			dstCenterInTexel = Vector((
-				frac( saturate(dstCenterInTexel.x + 0.5) ),
-				frac( saturate(dstCenterInTexel.y + 0.5) )
-			))
-			resultDstCenter = ( Vector((
-				math.floor(dstCenter.x * resoSize),
-				math.floor(dstCenter.y * resoSize)
-			)) + dstCenterInTexel ) / resoSize
+				# 操作対象の処理結果の中央位置テクセル内座標を得る
+				dstCenterInTexel = rotDstPos(srcCenterInTexel - Vector((0.5, 0.5)))
+				dstCenterInTexel = Vector((
+					frac( saturate(dstCenterInTexel.x + 0.5) ),
+					frac( saturate(dstCenterInTexel.y + 0.5) )
+				))
+				resultDstCenter = Vector((
+					(math.floor(dstCenter.x * imgSize.x) + dstCenterInTexel.x) / imgSize.x,
+					(math.floor(dstCenter.y * imgSize.y) + dstCenterInTexel.y) / imgSize.y
+				))
 
 			# UVの変換テーブルを作成
 			uvConvMap = []
@@ -209,16 +220,6 @@ class OperatorSet(OperatorSet_Base):
 
 			row = column.row()
 			param = context.scene.iz_uv_tool_property
-			resoLevel = param.edge_sync_reso_level
-			row.label(text="resolution: " + str(2**resoLevel))
-
-			row = column.row()
-			row.prop(param, "edge_sync_reso_level", slider=True)
-
-			column.separator()
-
-			row = column.row()
-			param = context.scene.iz_uv_tool_property
 			row.prop(param, "edge_sync_color")
 
 # ライン描画ではなぜかブレンドモードを変更できず、α合成もできないので、このプロパティは非表示
@@ -258,13 +259,6 @@ class OperatorSet(OperatorSet_Base):
 		)
 
 		# Global保存パラメータを定義
-		prm_resoLv = IntProperty(
-			name="reso level",
-			description="Texture Resolution Level",
-			default=9,
-			min=4,
-			max=12,
-		)
 		prm_color = FloatVectorProperty(
 			name="color",
 			description="Edge Color",
@@ -278,10 +272,8 @@ class OperatorSet(OperatorSet_Base):
 			default=0.7,
             min=0, max=1,
 		)
-		props.edge_sync_reso_level: prm_resoLv
 		props.edge_sync_color: prm_color
 		props.edge_sync_alpha: prm_alpha
-		props.__annotations__["edge_sync_reso_level"] = prm_resoLv
 		props.__annotations__["edge_sync_color"] = prm_color
 		props.__annotations__["edge_sync_alpha"] = prm_alpha
 
