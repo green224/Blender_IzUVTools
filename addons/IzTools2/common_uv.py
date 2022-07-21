@@ -5,6 +5,27 @@ from mathutils import *
 import math
 
 
+# 現在PixelCenterFit状態か否かを取得する
+def isPixelCenterFit(context):
+	imgEditor = context.area.spaces[0]
+	if imgEditor.uv_editor and imgEditor.image:
+		if imgEditor.uv_editor.pixel_snap_mode == "CENTER":
+			return True
+		else:
+			return False
+	return None
+
+# ImageEditorの表示画像から解像度を取得する処理
+def getTexSizeOfImageEditor(context):
+	imgEditor = context.area.spaces[0]
+	if imgEditor.uv_editor:
+		if imgEditor.image:
+			return Vector((
+				imgEditor.image.size[0],
+				imgEditor.image.size[1]
+			))
+	return None
+
 # 現在編集しているオブジェクトのDataとBMeshリストを得る
 def getEditingBMeshList():
 	result = []

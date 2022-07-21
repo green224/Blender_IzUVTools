@@ -47,7 +47,7 @@ class OperatorSet(OperatorSet_Base):
 			if context.area.type != 'IMAGE_EDITOR': return {'CANCELLED'}
 
 			imgEditor = context.area.spaces[0]
-			isCFit = OperatorSet._isCurrentCenterFit(context)
+			isCFit = isPixelCenterFit(context)
 			if isCFit is not None:
 				# SnapModeをCenterとDisableで切り替える
 				if isCFit:	imgEditor.uv_editor.pixel_snap_mode = "DISABLED"
@@ -68,7 +68,7 @@ class OperatorSet(OperatorSet_Base):
 			
 			column = layout.column()
 
-			isCFit = OperatorSet._isCurrentCenterFit(context)
+			isCFit = isPixelCenterFit(context)
 			row = column.row()
 			row.operator(
 				OperatorSet.OpImpl.bl_idname,
@@ -85,16 +85,5 @@ class OperatorSet(OperatorSet_Base):
 			OperatorSet.UI_PT_Izt_UV_Pixel_Center_Fit,
 			OperatorSet.OpImpl,
 		)
-
-	# 現在PixelCenterFit状態か否かを取得する
-	@staticmethod
-	def _isCurrentCenterFit(context):
-		imgEditor = context.area.spaces[0]
-		if imgEditor.uv_editor and imgEditor.image:
-			if imgEditor.uv_editor.pixel_snap_mode == "CENTER":
-				return True
-			else:
-				return False
-		return None
 
 

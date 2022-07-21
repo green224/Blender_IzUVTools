@@ -63,9 +63,19 @@ class OperatorSet(OperatorSet_Base):
 			bmList = getEditingBMeshList()
 			uvVerts = getSelectedUVVerts( [bm for _,bm in bmList] )
 
+			# PixelCenterFitか否か
+			isPCFit = isPixelCenterFit(bpy.context)
+			imgSize = getTexSizeOfImageEditor(bpy.context)
+
 			# UV座標のみの処理用配列を生成
-			uvLst = [i.uv for i,j in uvVerts]
-			dctUVs = []			# 重複を除いたUV座標リスト
+			uvLst = [i.uv.copy() for i,_ in uvVerts]
+
+			# 画像読み込み済みの場合は、UVをピクセル座標に変換しておく
+			if imgSize:
+				uvLst = [Vector((i.x*imgSize.x, i.y*imgSize.y)) for i in uvLst]
+
+			# 重複を除いたUV座標リスト
+			dctUVs = []
 			for i in uvLst:
 				if (not i in dctUVs): dctUVs.append(i.copy())
 
@@ -94,6 +104,17 @@ class OperatorSet(OperatorSet_Base):
 
 			# ここで中央を計算しておく
 			center = getMinMaxUV(dctUVs)[3]
+
+			# PixelCenterFitの場合は、予め整列垂直方向にCenterFitしておく
+			if isPCFit:
+				if procDir=="/":
+					center.y = math.floor(center.y)
+				elif procDir=="\\":
+					center.x = math.floor(center.x)
+				elif procDirX:
+					center.y = math.floor(center.y) +0.5
+				else:
+					center.x = math.floor(center.x) +0.5
 
 			# 頂点間距離を維持した形を計算する
 			kpdUVs = [dctUVs[0].copy()]
@@ -128,7 +149,14 @@ class OperatorSet(OperatorSet_Base):
 					
 			# 元のUVに反映
 			for idx,i in enumerate(uvVerts):
-				i[0].uv = dctUVs[src2dctMap[idx]]
+				uv = dctUVs[src2dctMap[idx]].copy()
+				if imgSize:
+					uv.x /= imgSize.x
+					uv.y /= imgSize.y
+				if isPCFit:
+					uv.x = (math.floor(uv.x*imgSize.x) +0.5) /imgSize.x
+					uv.y = (math.floor(uv.y*imgSize.y) +0.5) /imgSize.y
+				i[0].uv = uv
 
 			# BMeshを反映
 			for mesh,_ in bmList:

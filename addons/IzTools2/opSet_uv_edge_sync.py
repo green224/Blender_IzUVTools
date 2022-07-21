@@ -60,16 +60,8 @@ class OperatorSet(OperatorSet_Base):
 			# 選択中エッジに対応する非選択エッジがない場合は、何もしない
 			if len(selUVs) == 0: return {'CANCELLED'}
 
-			# PixelCenterFitの場合は、この操作でもそれを適応するために、
 			# 表示画像から解像度を取得しておく
-			imgSize = None
-			imgEditor = context.area.spaces[0]
-			if imgEditor.uv_editor and imgEditor.uv_editor.pixel_snap_mode == "CENTER":
-				if imgEditor.image:
-					imgSize = Vector((
-						imgEditor.image.size[0],
-						imgEditor.image.size[1]
-					))
+			imgSize = getTexSizeOfImageEditor(context)
 
 			# まず、操作対象エッジの中心位置と、
 			# 操作対象エッジが参照元エッジをどれだけ回転させたものに一致
