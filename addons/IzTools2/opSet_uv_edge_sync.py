@@ -9,6 +9,7 @@ import bpy
 import bmesh
 from mathutils import *
 import math
+import time
 
 from bpy.types import (
 		Operator,
@@ -69,7 +70,7 @@ class OperatorSet(OperatorSet_Base):
 			srcCenter = Vector((0, 0))
 			dstCenter = Vector((0, 0))
 			aglCnt = [0, 0, 0, 0]
-			for (srcUV0, srcUV1, dstUV0, dstUV1) in selUVs:
+			for (srcUV0, srcUV1, dstUV0, dstUV1, _) in selUVs:
 				sUV0 = srcUV0.uv
 				sUV1 = srcUV1.uv
 				dUV0 = dstUV0.uv
@@ -161,7 +162,7 @@ class OperatorSet(OperatorSet_Base):
 			def addConvMap( src, dst ):	# UV変換テーブルへの追加処理
 				if not findConvMap(src): uvConvMap.append( [src, dst] )
 
-			for (srcUV0, srcUV1, dstUV0, dstUV1) in selUVs:
+			for (srcUV0, srcUV1, dstUV0, dstUV1, _) in selUVs:
 				sUV0 = srcUV0.uv
 				sUV1 = srcUV1.uv
 				dUV0 = dstUV0.uv
@@ -215,6 +216,8 @@ class OperatorSet(OperatorSet_Base):
 			row.prop(param, "edge_sync_color_nml")
 			row = column.row()
 			row.prop(param, "edge_sync_color_err")
+			row = column.row()
+			row.prop(param, "edge_sync_color_srp")
 
 # ライン描画ではなぜかブレンドモードを変更できず、α合成もできないので、このプロパティは非表示
 #			row = column.row()
@@ -269,6 +272,9 @@ class OperatorSet(OperatorSet_Base):
 	# シェーダおよび描画用バッチ
 	__shader = None
 
+	# アニメーション用の、インスタンス開始時刻
+	__beginTCnt = 0
+
 	def __init__(self, props):
 		super().__init__()
 
@@ -280,17 +286,24 @@ class OperatorSet(OperatorSet_Base):
 
 		# Global保存パラメータを定義
 		prm_colorNml = FloatVectorProperty(
-			name="color normal",
-			description="Edge Color",
+			name="match length",
+			description="Edge color of matched length",
 			subtype="COLOR",
-			default=[1,0.7,0],
+			default=[0.32,1,0],
             min=0, max=1,
 		)
 		prm_colorErr = FloatVectorProperty(
-			name="color error",
-			description="Edge Color",
+			name="unmatch length",
+			description="Edge color of unmatched length",
 			subtype="COLOR",
 			default=[0.8,0,0],
+            min=0, max=1,
+		)
+		prm_colorSrp = FloatVectorProperty(
+			name="unmatch sharp",
+			description="Sharp edge color of unmatched length",
+			subtype="COLOR",
+			default=[0.05,0,1],
             min=0, max=1,
 		)
 		prm_alpha = FloatProperty(
@@ -301,10 +314,15 @@ class OperatorSet(OperatorSet_Base):
 		)
 		props.edge_sync_color_nml: prm_colorNml
 		props.edge_sync_color_err: prm_colorErr
+		props.edge_sync_color_srp: prm_colorSrp
 		props.edge_sync_alpha: prm_alpha
 		props.__annotations__["edge_sync_color_nml"] = prm_colorNml
 		props.__annotations__["edge_sync_color_err"] = prm_colorErr
+		props.__annotations__["edge_sync_color_srp"] = prm_colorSrp
 		props.__annotations__["edge_sync_alpha"] = prm_alpha
+
+		# 開始時刻を初期化
+		OperatorSet.__beginTCnt = time.time()
 
 	# 描画処理本体
 	@classmethod
@@ -326,12 +344,17 @@ class OperatorSet(OperatorSet_Base):
 				}
 			'''
 			fragment_shader = '''
+//				uniform float time;
 				uniform float alpha;
 				in vec3 outCol;
 				out vec4 FragColor;
 
 				void main() {
 					FragColor = vec4(outCol, alpha);
+//					FragColor = vec4(
+//						outCol,
+//						mix( 0, 1, sin(time*2)/2+0.5 )
+//					);
 				}
 			'''
 			cls.__shader = gpu.types.GPUShader(vertex_shader, fragment_shader)
@@ -356,22 +379,26 @@ class OperatorSet(OperatorSet_Base):
 			param = context.scene.iz_uv_tool_property
 			colorNml = [i for i in param.edge_sync_color_nml]
 			colorErr = [i for i in param.edge_sync_color_err]
-			alpha = param.edge_sync_alpha
+			colorSrp = [i for i in param.edge_sync_color_srp]
+#			alpha = param.edge_sync_alpha
 
 			cls.__shader.bind()
-			cls.__shader.uniform_float("alpha", alpha)
+#			cls.__shader.uniform_float("alpha", alpha)
+			cls.__shader.uniform_float("alpha", 1.0)
+#			cls.__shader.uniform_float("time", time.time() - cls.__beginTCnt)
 
 			# バッチの生成
 			uvs = []
 			cols = []
-			for (srcUV0, srcUV1, dstUV0, dstUV1) in selUVs:
+			for (srcUV0, srcUV1, dstUV0, dstUV1, edge) in selUVs:
 				uvs.append([dstUV0.uv.x, dstUV0.uv.y])
 				uvs.append([dstUV1.uv.x, dstUV1.uv.y])
 				lenSrc = (srcUV0.uv - srcUV1.uv).length
 				lenDst = (dstUV0.uv - dstUV1.uv).length
 				col = None
 				if abs(lenSrc - lenDst) < 0.00001: col = colorNml
-				else: col = colorErr
+				elif edge.smooth: col = colorErr
+				else: col = colorSrp
 				cols.append(col)
 				cols.append(col)
 			batch = batch_for_shader(
@@ -415,7 +442,7 @@ class OperatorSet(OperatorSet_Base):
 						dstUV1 = loop[uv_layer]
 						dstUV0 = loop.link_loop_next[uv_layer]
 						if not dstUV0.select or not dstUV1.select:
-							result.append( (srcUV0, srcUV1, dstUV0, dstUV1) )
+							result.append( (srcUV0, srcUV1, dstUV0, dstUV1, edge) )
 
 		return result
 
