@@ -210,9 +210,11 @@ class OperatorSet(OperatorSet_Base):
 			
 			column = layout.column()
 
-			row = column.row()
 			param = context.scene.iz_uv_tool_property
-			row.prop(param, "edge_sync_color")
+			row = column.row()
+			row.prop(param, "edge_sync_color_nml")
+			row = column.row()
+			row.prop(param, "edge_sync_color_err")
 
 # ライン描画ではなぜかブレンドモードを変更できず、α合成もできないので、このプロパティは非表示
 #			row = column.row()
@@ -277,11 +279,18 @@ class OperatorSet(OperatorSet_Base):
 		)
 
 		# Global保存パラメータを定義
-		prm_color = FloatVectorProperty(
-			name="color",
+		prm_colorNml = FloatVectorProperty(
+			name="color normal",
 			description="Edge Color",
 			subtype="COLOR",
 			default=[1,0.7,0],
+            min=0, max=1,
+		)
+		prm_colorErr = FloatVectorProperty(
+			name="color error",
+			description="Edge Color",
+			subtype="COLOR",
+			default=[0.8,0,0],
             min=0, max=1,
 		)
 		prm_alpha = FloatProperty(
@@ -290,9 +299,11 @@ class OperatorSet(OperatorSet_Base):
 			default=0.7,
             min=0, max=1,
 		)
-		props.edge_sync_color: prm_color
+		props.edge_sync_color_nml: prm_colorNml
+		props.edge_sync_color_err: prm_colorErr
 		props.edge_sync_alpha: prm_alpha
-		props.__annotations__["edge_sync_color"] = prm_color
+		props.__annotations__["edge_sync_color_nml"] = prm_colorNml
+		props.__annotations__["edge_sync_color_err"] = prm_colorErr
 		props.__annotations__["edge_sync_alpha"] = prm_alpha
 
 	# 描画処理本体
@@ -306,18 +317,21 @@ class OperatorSet(OperatorSet_Base):
 				// ModelViewProjectionMatrix : source/blender/gpu/shaders/gpu_shader_2D_vert.glsl
 				uniform mat4 ModelViewProjectionMatrix;
 				in vec2 uv;
+				in vec3 col;
+				out vec3 outCol;
 
 				void main() {
 					gl_Position = ModelViewProjectionMatrix * vec4(uv, 0.0, 1.0);
+					outCol = col;
 				}
 			'''
 			fragment_shader = '''
-				uniform vec3 color;
 				uniform float alpha;
+				in vec3 outCol;
 				out vec4 FragColor;
 
 				void main() {
-					FragColor = vec4(color, alpha);
+					FragColor = vec4(outCol, alpha);
 				}
 			'''
 			cls.__shader = gpu.types.GPUShader(vertex_shader, fragment_shader)
@@ -340,21 +354,32 @@ class OperatorSet(OperatorSet_Base):
 
 			# レンダリング時のカラー
 			param = context.scene.iz_uv_tool_property
-			color = param.edge_sync_color
+			colorNml = [i for i in param.edge_sync_color_nml]
+			colorErr = [i for i in param.edge_sync_color_err]
 			alpha = param.edge_sync_alpha
 
 			cls.__shader.bind()
-			cls.__shader.uniform_float("color", color)
 			cls.__shader.uniform_float("alpha", alpha)
 
 			# バッチの生成
 			uvs = []
-			for (_, _, uv0, uv1) in selUVs:
-				uvs.append([uv0.uv.x, uv0.uv.y])
-				uvs.append([uv1.uv.x, uv1.uv.y])
+			cols = []
+			for (srcUV0, srcUV1, dstUV0, dstUV1) in selUVs:
+				uvs.append([dstUV0.uv.x, dstUV0.uv.y])
+				uvs.append([dstUV1.uv.x, dstUV1.uv.y])
+				lenSrc = (srcUV0.uv - srcUV1.uv).length
+				lenDst = (dstUV0.uv - dstUV1.uv).length
+				col = None
+				if abs(lenSrc - lenDst) < 0.00001: col = colorNml
+				else: col = colorErr
+				cols.append(col)
+				cols.append(col)
 			batch = batch_for_shader(
 				cls.__shader, 'LINES',
-				{"uv": uvs},
+				{
+					"uv": uvs,
+					"col": cols,
+				}
 			)
 
 			bgl.glLineWidth(3)
