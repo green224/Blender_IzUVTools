@@ -56,7 +56,7 @@ class OperatorSet(OperatorSet_Base):
 			# 選択エッジ一覧を取得
 			bmList = getEditingBMeshList()
 			bMeshes = [bm for _,bm in bmList]
-			selUVs = OperatorSet._getSelectedUVs(bMeshes)
+			selUVs = OperatorSet._getSelectedUVs(bMeshes, False)
 
 			# 選択中エッジに対応する非選択エッジがない場合は、何もしない
 			if len(selUVs) == 0: return {'CANCELLED'}
@@ -224,6 +224,9 @@ class OperatorSet(OperatorSet_Base):
 #			row.prop(param, "edge_sync_alpha", slider=True)
 
 			row = column.row()
+			row.prop(param, "edge_sync_show_sel_edge")
+
+			row = column.row()
 			row.operator(OperatorSet.OpImpl.bl_idname, text="Sync")
 
 	# プラグインをインストールしたときの処理
@@ -312,14 +315,21 @@ class OperatorSet(OperatorSet_Base):
 			default=0.7,
             min=0, max=1,
 		)
+		prm_showSelEdge = BoolProperty(
+			name="show sel edge",
+			description="Show the selected edge as well",
+			default=False,
+		)
 		props.edge_sync_color_nml: prm_colorNml
 		props.edge_sync_color_err: prm_colorErr
 		props.edge_sync_color_srp: prm_colorSrp
 		props.edge_sync_alpha: prm_alpha
+		props.edge_sync_show_sel_edge: prm_showSelEdge
 		props.__annotations__["edge_sync_color_nml"] = prm_colorNml
 		props.__annotations__["edge_sync_color_err"] = prm_colorErr
 		props.__annotations__["edge_sync_color_srp"] = prm_colorSrp
 		props.__annotations__["edge_sync_alpha"] = prm_alpha
+		props.__annotations__["edge_sync_show_sel_edge"] = prm_showSelEdge
 
 		# 開始時刻を初期化
 		OperatorSet.__beginTCnt = time.time()
@@ -366,7 +376,9 @@ class OperatorSet(OperatorSet_Base):
 		# ここでは毎回bMesh丸ごとコピーしたものを参照するようにする。
 		bmList = [bm.copy() for _,bm in bmList]
 
-		selUVs = cls._getSelectedUVs(bmList)
+		param = context.scene.iz_uv_tool_property
+		isShowSelEdge = param.edge_sync_show_sel_edge
+		selUVs = cls._getSelectedUVs(bmList, isShowSelEdge)
 
 		# 選択中エッジに対応する非選択エッジがない場合は、何もしない
 		if len(selUVs) != 0:
@@ -376,7 +388,6 @@ class OperatorSet(OperatorSet_Base):
 #			gpu.state.blend_set("ADDITIVE")
 
 			# レンダリング時のカラー
-			param = context.scene.iz_uv_tool_property
 			colorNml = [i for i in param.edge_sync_color_nml]
 			colorErr = [i for i in param.edge_sync_color_err]
 			colorSrp = [i for i in param.edge_sync_color_srp]
@@ -391,16 +402,24 @@ class OperatorSet(OperatorSet_Base):
 			uvs = []
 			cols = []
 			for (srcUV0, srcUV1, dstUV0, dstUV1, edge) in selUVs:
-				uvs.append([dstUV0.uv.x, dstUV0.uv.y])
-				uvs.append([dstUV1.uv.x, dstUV1.uv.y])
+				# カラーを確定
 				lenSrc = (srcUV0.uv - srcUV1.uv).length
 				lenDst = (dstUV0.uv - dstUV1.uv).length
 				col = None
 				if abs(lenSrc - lenDst) < 0.00001: col = colorNml
 				elif edge.smooth: col = colorErr
 				else: col = colorSrp
+
+				# 頂点バッファを詰める
+				uvs.append([dstUV0.uv.x, dstUV0.uv.y])
+				uvs.append([dstUV1.uv.x, dstUV1.uv.y])
 				cols.append(col)
 				cols.append(col)
+				if isShowSelEdge:
+					uvs.append([srcUV0.uv.x, srcUV0.uv.y])
+					uvs.append([srcUV1.uv.x, srcUV1.uv.y])
+					cols.append(col)
+					cols.append(col)
 			batch = batch_for_shader(
 				cls.__shader, 'LINES',
 				{
@@ -417,7 +436,7 @@ class OperatorSet(OperatorSet_Base):
 
 	# 指定のBMeshリストから、選択中エッジLoopと、同じエッジを参照したLoopの組をリストアップする処理
 	@staticmethod
-	def _getSelectedUVs(bmList):
+	def _getSelectedUVs(bmList, isShowSelEdge):
 		result = []
 		for bm in bmList:
 			uv_layer = bm.loops.layers.uv.active
@@ -441,7 +460,12 @@ class OperatorSet(OperatorSet_Base):
 					for loop in edge.link_loops:
 						dstUV1 = loop[uv_layer]
 						dstUV0 = loop.link_loop_next[uv_layer]
-						if not dstUV0.select or not dstUV1.select:
+
+						# 同じ位置のエッジは除外
+						if srcUV0.uv == dstUV0.uv and srcUV1.uv == dstUV1.uv: continue
+						if srcUV0.uv == dstUV1.uv and srcUV1.uv == dstUV0.uv: continue
+						
+						if isShowSelEdge or not dstUV0.select or not dstUV1.select:
 							result.append( (srcUV0, srcUV1, dstUV0, dstUV1, edge) )
 
 		return result
