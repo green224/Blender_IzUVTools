@@ -56,8 +56,9 @@ class OperatorSet(OperatorSet_Base):
 					posW = obj.matrix_world @ bone.matrix @ bone.location
 					tgtPosLst.append( posW )
 			elif bpy.context.mode == "EDIT_MESH":
-				for obj in bpy.context.selected_objects:
-					for v in obj.data.vertices:
+				bmList = getEditingBMeshList()
+				for _,bm in bmList:
+					for v in bm.verts:
 						if v.select == False: continue
 						tgtPosLst.append( v.co )
 
