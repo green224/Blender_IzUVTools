@@ -3,6 +3,10 @@
 		{
 			"name": "IzTools2",
 			"path": "addons\\IzTools2"
+		},
+		{
+			"name": "ExportBakedFBX",
+			"path": "addons\\ExportBakedFBX"
 		}
 	],
 	"extensions": {
