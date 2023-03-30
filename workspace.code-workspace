@@ -1,7 +1,13 @@
 {
 	"folders": [
 		{
+			"name": "IzTools2",
 			"path": "addons\\IzTools2"
 		}
-	]
+	],
+	"extensions": {
+		"recommendations": [
+			"JacquesLucke.blender-development"
+		]
+	}
 }
