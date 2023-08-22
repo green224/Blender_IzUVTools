@@ -12,7 +12,7 @@
 bl_info = {
 	"name" : "Iz Tools",
 	"author" : "Shu",
-	"version" : (0,6),
+	"version" : (0,7),
     'blender': (3, 2, 0),
     "location": "UV Image Editor > Tools, 3D View > Toolbox",
 	"description" : "Add some tools of uv and bone and etc.",
@@ -30,6 +30,7 @@ if "bpy" in locals():
 	imp.reload(opSet_base)
 	imp.reload(opSet_pose_keying_all)
 	imp.reload(opSet_pose_trans_lock_all)
+	imp.reload(opSet_edit_ctrl_vcol)
 	imp.reload(opSet_uv_pixel_center_fit)
 	imp.reload(opSet_uv_align)
 	imp.reload(opSet_uv_straight_relax)
@@ -41,6 +42,7 @@ from . import common_uv
 from . import opSet_base
 from . import opSet_pose_keying_all
 from . import opSet_pose_trans_lock_all
+from . import opSet_edit_ctrl_vcol
 from . import opSet_uv_pixel_center_fit
 from . import opSet_uv_align
 from . import opSet_uv_straight_relax
@@ -87,6 +89,7 @@ classes = (
 opSet_Insts = [
 	opSet_pose_keying_all.OperatorSet(PR_IzTools),
 	opSet_pose_trans_lock_all.OperatorSet(PR_IzTools),
+	opSet_edit_ctrl_vcol.OperatorSet(PR_IzTools),
 	opSet_uv_pixel_center_fit.OperatorSet(PR_IzTools),
 	opSet_uv_align.OperatorSet(PR_IzTools),
 	opSet_uv_straight_relax.OperatorSet(PR_IzTools),
