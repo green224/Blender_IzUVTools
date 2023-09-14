@@ -12,7 +12,7 @@
 bl_info = {
 	"name" : "Iz Tools",
 	"author" : "Shu",
-	"version" : (0,8),
+	"version" : (0,9),
     'blender': (3, 2, 0),
     "location": "UV Image Editor > Tools, 3D View > Toolbox",
 	"description" : "Add some tools of uv and bone and etc.",

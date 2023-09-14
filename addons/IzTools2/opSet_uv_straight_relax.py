@@ -125,8 +125,8 @@ class OperatorSet(OperatorSet_Base):
 				i[0].uv = kpdUVs[src2dctMap[idx]]
 
 			# BMeshを反映
-			for mesh,_ in bmList:
-				bmesh.update_edit_mesh(mesh)
+			for obj,_ in bmList:
+				bmesh.update_edit_mesh(obj.data)
 		
 	# UIパネル描画部分
 	class UI_PT_Izt_UV_Straight_Relax(OperatorSet_Base.Panel_Base):

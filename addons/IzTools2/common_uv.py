@@ -26,25 +26,24 @@ def getTexSizeOfImageEditor(context):
 			))
 	return None
 
-# 現在編集しているオブジェクトのDataとBMeshリストを得る
+# 現在編集しているオブジェクトとBMeshリストを得る
 def getEditingBMeshList():
 	result = []
 
 	# 選択中の全オブジェクトに対して行う
 	objs = set(bpy.context.selected_objects)
-	objDatas = set([i.data for i in objs])
 
-	for mesh in objDatas:
+	for obj in objs:
 
 		# メッシュ以外は除外
-		if not hasattr(mesh,"polygons"): continue
+		if not hasattr(obj.data,"polygons"): continue
 
 		# Editモード外のメッシュは除外
-		if not mesh.is_editmode: continue
+		if not obj.data.is_editmode: continue
 		
 		# BMeshから、UV番号ごとの選択状態を得る
-		bm = bmesh.from_edit_mesh(mesh)
-		result.append((mesh, bm))
+		bm = bmesh.from_edit_mesh(obj.data)
+		result.append((obj, bm))
 	
 	return result
 
@@ -99,3 +98,5 @@ def frac(x):
 	result = math.modf(x)[0]
 	if result < 0: return saturate(1 + result)
 	return result
+def lerp(a, b, t): return t*b + (1 - t)*a
+

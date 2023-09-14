@@ -195,8 +195,8 @@ class OperatorSet(OperatorSet_Base):
 			for i in convLst: i[0].uv = i[1]
 
 			# BMeshを反映
-			for mesh,_ in bmList:
-				bmesh.update_edit_mesh(mesh)
+			for obj,_ in bmList:
+				bmesh.update_edit_mesh(obj.data)
 			
 			return {'FINISHED'}
 		

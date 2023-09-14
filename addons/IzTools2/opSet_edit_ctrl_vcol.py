@@ -30,6 +30,28 @@ from bpy.props import (
 from .opSet_base import *
 from .common_uv import *
 
+# BMeshから選択中のカラーを取得する処理
+def _getSelectedColorFromBMesh(bm):
+	# 頂点カラーが無い場合は無効
+	col_layer = bm.loops.layers.color.active
+	if col_layer is None: return None
+
+	# 選択中のカラーを取得
+	isSelected = False
+	col = None
+	for face in bm.faces:
+		for loop in face.loops:
+			if not loop.vert.select: continue
+			col = loop[col_layer]
+			isSelected = True
+			break
+		if isSelected: break
+
+	# 一つも頂点を選択していない場合は非表示
+	if not isSelected: return None
+
+	return col
+
 #-------------------------------------------------------
 
 # 機能本体
@@ -52,22 +74,16 @@ class OperatorSet(OperatorSet_Base):
 				],
 				options={'HIDDEN'})
 		
-		valR: FloatProperty(name="valueR",
-		    	default=1.0,
-				options={'HIDDEN'})
-		valG: FloatProperty(name="valueG",
-		    	default=1.0,
-				options={'HIDDEN'})
-		valB: FloatProperty(name="valueB",
-		    	default=1.0,
-				options={'HIDDEN'})
-		valA: FloatProperty(name="valueA",
-		    	default=1.0,
-				options={'HIDDEN'})
-
 		def execute(self, context):
 			bmList = getEditingBMeshList()
 			
+			param = context.scene.iz_uv_tool_property
+			valR = param.edit_ctrl_vcol_colR
+			valG = param.edit_ctrl_vcol_colG
+			valB = param.edit_ctrl_vcol_colB
+			valA = param.edit_ctrl_vcol_colA
+			strength = param.edit_ctrl_vcol_strength
+
 			# 編集中のオブジェクトのBMeshごとに処理
 			for _,bm in bmList:
 				col_layer = bm.loops.layers.color.active
@@ -81,20 +97,103 @@ class OperatorSet(OperatorSet_Base):
 						if not loop.vert.select: continue
 						col = loop[col_layer]
 
-						if self.ch is "R": col.x = self.valR
-						elif self.ch is "G": col.y = self.valG
-						elif self.ch is "B": col.z = self.valB
-						elif self.ch is "A": col.w = self.valA
+						if self.ch == "R":
+							col.x = lerp( col.x, valR, strength )
+						elif self.ch == "G":
+							col.y = lerp( col.y, valG, strength )
+						elif self.ch == "B":
+							col.z = lerp( col.z, valB, strength )
+						elif self.ch == "A":
+							col.w = lerp( col.w, valA, strength )
 						else:
-							col.x = self.valR
-							col.y = self.valG
-							col.z = self.valB
-							col.w = self.valA
+							col.x = lerp( col.x, valR, strength )
+							col.y = lerp( col.y, valG, strength )
+							col.z = lerp( col.z, valB, strength )
+							col.w = lerp( col.w, valA, strength )
 						loop[col_layer] = col
 			
 			# BMeshを反映
-			for mesh,_ in bmList:
-				bmesh.update_edit_mesh(mesh)
+			for obj,_ in bmList:
+				bmesh.update_edit_mesh(obj.data)
+
+			return {'FINISHED'}
+
+	class OpImpl_BakeLight(Operator):
+		bl_idname = "object.izt_edit_ctrl_vcol_light"
+		bl_label = "Iz Tools: Edit: Control VCol: Bake Light"
+		bl_options = {'REGISTER', 'UNDO'}
+
+		def execute(self, context):
+			bmList = getEditingBMeshList()
+
+			param = context.scene.iz_uv_tool_property
+			strength = param.edit_ctrl_vcol_strength
+			light = param.edit_ctrl_vcol_light
+			lightScale = param.edit_ctrl_vcol_lightScale
+			lightShadingMode = param.edit_ctrl_vcol_lightShadingMode
+
+			# ライトが未選択の場合は何もしない
+			if light is None: return {'CANCELLED'}
+
+			# 陰影計算処理を定義
+			calcLight = None
+			def calcLightByDir(lightDir, nml):
+				ret = -lightDir.dot(nml)	# 通常のランバート計算
+				ret = lightScale * ret		# 任意の強度にスケールする
+				ret = ret / 2 + 0.5			# ハーフランバートにする
+				return saturate( ret )
+			if light.data.type == "POINT":
+				def calcLight(pos, nml):
+					lightPos = light.matrix_world @ Vector()
+					lightDir = (pos - lightPos).normalized()
+					return calcLightByDir(lightDir, nml)
+			elif light.data.type == "SUN":
+				lightDir = light.matrix_world.to_3x3() @ Vector((0,0,-1))
+				lightDir = lightDir.normalized()
+				def calcLight(pos, nml):
+					return calcLightByDir(lightDir, nml)
+			else:
+				return {'CANCELLED'}
+
+			# 編集中のオブジェクトのBMeshごとに処理
+			for obj,bm in bmList:
+				col_layer = bm.loops.layers.color.active
+				#normal_layer = bm.loops.layers.normal
+
+				# 頂点カラーが無い場合は何もしない
+				if col_layer is None: return {'CANCELLED'}
+
+				# 法線変換用行列。L2Wの回転部分の逆転置行列
+				l2w = obj.matrix_world
+				nmlL2W = l2w.to_3x3().inverted_safe().transposed()
+
+				# 選択中頂点のカラーを設定
+				for face in bm.faces:
+					for loop in face.loops:
+						if not loop.vert.select: continue
+						col = loop[col_layer]
+
+						# 法線の取得。
+						# 表示されている法線の取得はBlenderの仕様上とても大変で
+						# 現状スマートに取得する方法が不明なので、とりあえずFlatとSmoothのみ
+						if lightShadingMode == "SMOOTH":
+							nml = loop.vert.normal
+						else:
+							nml = loop.face.normal
+						#nml = loop[normal_layer]
+
+						posW = l2w @ loop.vert.co
+						nmlW = nmlL2W @ nml
+						newCol = calcLight( posW, nmlW )
+
+						col.x = lerp( col.x, newCol, strength )
+						col.y = lerp( col.y, newCol, strength )
+						col.z = lerp( col.z, newCol, strength )
+						loop[col_layer] = col
+			
+			# BMeshを反映
+			for obj,_ in bmList:
+				bmesh.update_edit_mesh(obj.data)
 
 			return {'FINISHED'}
 
@@ -120,11 +219,11 @@ class OperatorSet(OperatorSet_Base):
 		def execute(self, context):
 			param = context.scene.iz_uv_tool_property
 
-			if self.ch is "R":
+			if self.ch == "R":
 				param.edit_ctrl_vcol_colR = self.chVal
-			elif self.ch is "G":
+			elif self.ch == "G":
 				param.edit_ctrl_vcol_colG = self.chVal
-			elif self.ch is "B":
+			elif self.ch == "B":
 				param.edit_ctrl_vcol_colB = self.chVal
 			else:
 				param.edit_ctrl_vcol_colA = self.chVal
@@ -153,23 +252,15 @@ class OperatorSet(OperatorSet_Base):
 			# ここでは毎回bMesh丸ごとコピーしたものを参照するようにする。
 			bm = bm.copy()
 
-			# 頂点カラーが無い場合は非表示
-			col_layer = bm.loops.layers.color.active
-			if col_layer is None: return
-
 			# 選択中のカラーを取得
-			isSelected = False
-			col = None
-			for face in bm.faces:
-				for loop in face.loops:
-					if not loop.vert.select: continue
-					col = loop[col_layer]
-					isSelected = True
-					break
-				if isSelected: break
+			col = _getSelectedColorFromBMesh(bm)
 
-			# 一つも頂点を選択していない場合は非表示
-			if not isSelected: return
+			# バグるのを回避するためにコピーしたBMeshを開放
+			bm.free()
+			bm = None
+
+			# 選択中の頂点・頂点カラーが存在しない場合は何もしない
+			if col is None: return
 
 
 			# 選択頂点カラーのUI表示
@@ -209,10 +300,9 @@ class OperatorSet(OperatorSet_Base):
 					OperatorSet.OpImpl_SetColor.bl_idname,
 					text="Set")
 				op.ch = ch
-				op.valR = param.edit_ctrl_vcol_colR
-				op.valG = param.edit_ctrl_vcol_colG
-				op.valB = param.edit_ctrl_vcol_colB
-				op.valA = param.edit_ctrl_vcol_colA
+
+			# 強度スライダー
+			column.prop(param, "edit_ctrl_vcol_strength", slider=True)
 
 			# 全チャンネル設定ボタン
 			column = layout.column()
@@ -221,10 +311,26 @@ class OperatorSet(OperatorSet_Base):
 				OperatorSet.OpImpl_SetColor.bl_idname,
 				text="Set RGBA")
 			op.ch = "All"
-			op.valR = param.edit_ctrl_vcol_colR
-			op.valG = param.edit_ctrl_vcol_colG
-			op.valB = param.edit_ctrl_vcol_colB
-			op.valA = param.edit_ctrl_vcol_colA
+
+
+			layout.separator()
+
+			# ライトベイク
+			column = layout.column(align=True)
+			column.label(text = "Bake Light:")
+			column.prop_search(param, "edit_ctrl_vcol_light", context.scene, "objects")
+			column.prop(param, "edit_ctrl_vcol_lightShadingMode")
+
+			# 強度スライダー
+			column.prop(param, "edit_ctrl_vcol_lightScale")
+			column.prop(param, "edit_ctrl_vcol_strength", slider=True)
+
+			# ライトベイク実行ボタン
+			column = layout.column()
+			row = column.row()
+			op = row.operator(
+				OperatorSet.OpImpl_BakeLight.bl_idname,
+				text="Bake")
 
 	def __init__(self, props):
 		super().__init__()
@@ -233,6 +339,7 @@ class OperatorSet(OperatorSet_Base):
 		self._classes = (
 			OperatorSet.UI_PT_Izt_Edit_Ctrl_VCol,
 			OperatorSet.OpImpl_SetColor,
+			OperatorSet.OpImpl_BakeLight,
 			OperatorSet.OpImpl_SpoitColor,
 		)
 
@@ -257,12 +364,43 @@ class OperatorSet(OperatorSet_Base):
 			default=1,
 			min=0, max=1,
 		)
+		prm_strength = FloatProperty(
+			name="Strength",
+			default=1,
+			min=0, max=1,
+		)
+		def lightPoll(self, object): return object.type == 'LIGHT'
+		prm_light = PointerProperty(
+			name="Light",
+			type=bpy.types.Object,
+			poll=lightPoll,
+		)
+		prm_lightScale = FloatProperty(
+			name="Scale",
+			default=1,
+		)
+		prm_lightShadingMode = EnumProperty(
+			name="ShadingMode",
+			default="SMOOTH",
+			items=[
+			('SMOOTH','Smooth','Smooth'),
+			('FLAT','Flat','Flat'),
+			],
+		)
 		props.edit_ctrl_vcol_colR: prm_colR
 		props.edit_ctrl_vcol_colG: prm_colG
 		props.edit_ctrl_vcol_colB: prm_colB
 		props.edit_ctrl_vcol_colA: prm_colA
+		props.edit_ctrl_vcol_strength: prm_strength
+		props.edit_ctrl_vcol_light: prm_light
+		props.edit_ctrl_vcol_lightScale: prm_lightScale
+		props.edit_ctrl_vcol_lightShadingMode: prm_lightShadingMode
 		props.__annotations__["edit_ctrl_vcol_colR"] = prm_colR
 		props.__annotations__["edit_ctrl_vcol_colG"] = prm_colG
 		props.__annotations__["edit_ctrl_vcol_colB"] = prm_colB
 		props.__annotations__["edit_ctrl_vcol_colA"] = prm_colA
+		props.__annotations__["edit_ctrl_vcol_strength"] = prm_strength
+		props.__annotations__["edit_ctrl_vcol_light"] = prm_light
+		props.__annotations__["edit_ctrl_vcol_lightScale"] = prm_lightScale
+		props.__annotations__["edit_ctrl_vcol_lightShadingMode"] = prm_lightShadingMode
 
