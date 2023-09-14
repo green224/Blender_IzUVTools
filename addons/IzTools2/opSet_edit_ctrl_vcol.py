@@ -147,9 +147,14 @@ class OperatorSet(OperatorSet_Base):
 
 			# 編集中のオブジェクトのBMesh
 			bm = bmesh.from_edit_mesh(bpy.context.active_object.data)
-			col_layer = bm.loops.layers.color.active
+
+			# 移動などの編集とかち合うと、bMeshのreadonly参照を行うだけで
+			# bMesh自体が破壊されるという不具合が起きる（多分バグ?）ので
+			# ここでは毎回bMesh丸ごとコピーしたものを参照するようにする。
+			bm = bm.copy()
 
 			# 頂点カラーが無い場合は非表示
+			col_layer = bm.loops.layers.color.active
 			if col_layer is None: return
 
 			# 選択中のカラーを取得
