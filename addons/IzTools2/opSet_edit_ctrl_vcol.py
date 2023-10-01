@@ -50,7 +50,7 @@ def _getSelectedColorFromBMesh(bm):
 	# 一つも頂点を選択していない場合は非表示
 	if not isSelected: return None
 
-	return col
+	return col.copy()
 
 #-------------------------------------------------------
 
