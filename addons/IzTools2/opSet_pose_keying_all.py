@@ -121,8 +121,24 @@ class OperatorSet(OperatorSet_Base):
 		bl_label = "Iz Tools: Pose: Keying all"
 		bl_options = {'REGISTER', 'UNDO'}
 
+		isAllAction: BoolProperty(name="isAllAction",
+		   		default=False,
+				options={'HIDDEN'})
+
 		def execute(self, context):
-			keyingSelectBones()
+			if self.isAllAction == True:
+				bones = bpy.context.selected_pose_bones
+				if bones is None: return {'CANCELLED'}
+				animData = bones[0].id_data.animation_data
+
+				lastAction = animData.action
+				for action in bpy.data.actions:
+					animData.action = action
+					keyingSelectBones()
+				animData.action = lastAction
+				
+			else:
+				keyingSelectBones()
 			return {'FINISHED'}
 
 	# UIパネル描画部分
@@ -137,7 +153,10 @@ class OperatorSet(OperatorSet_Base):
 			column = layout.column()
 			
 			row = column.row()
-			prop = row.operator(OperatorSet.OpImpl.bl_idname, text="Execute")
+			prop = row.operator(OperatorSet.OpImpl.bl_idname, text="Current Action")
+			prop.isAllAction = False
+			prop = row.operator(OperatorSet.OpImpl.bl_idname, text="All Actions")
+			prop.isAllAction = True
 
 	def __init__(self, props):
 		super().__init__()
