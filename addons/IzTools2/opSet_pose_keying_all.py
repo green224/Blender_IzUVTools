@@ -30,26 +30,34 @@ from .opSet_base import *
 
 #-------------------------------------------------------
 
+# 指定のボーンのFCurve取得処理
+def getFCurve( bone, data_path, data_index ):
+	raw_data_path = 'pose.bones["' + bone.name + '"].' + data_path
+
+	if bone.id_data.animation_data is None: return None
+
+	fcurves = bone.id_data.animation_data.action.fcurves
+	for i in fcurves:
+		if i.data_path != raw_data_path or i.array_index != data_index: continue
+		return i
+	
+	return None
+
 # 指定のボーンにキーを打つ処理一式。is_removeがTrueの場合はキーを削除する
 def keyingBone( bone, data_path, data_index, is_remove ):
 
+	fcurve = getFCurve(bone, data_path, data_index)
+
 	# 削除命令の場合は削除
 	if is_remove:
-		bone.keyframe_delete(data_path=data_path, group=bone.name, index=data_index)
+		if fcurve is not None:
+			bone.id_data.animation_data.action.fcurves.remove(fcurve)
 		return
 
-	# キーを追加
-	bone.keyframe_insert(data_path=data_path, group=bone.name, index=data_index)
-
-	# Fcurveを取得
-	fcurves = bone.id_data.animation_data.action.fcurves
-	fcurve = None
-	raw_data_path = 'pose.bones["' + bone.name + '"].' + data_path
-	for i in fcurves:
-		if i.data_path != raw_data_path or i.array_index != data_index: continue
-		fcurve = i
-		break
-	if fcurve == None: raise SystemError		# Fcurveが見つからないのは変
+	# キーが無ければ追加
+	if fcurve is None:
+		bone.keyframe_insert(data_path=data_path, group=bone.name, index=data_index)
+		fcurve = getFCurve(bone, data_path, data_index)
 
 	# modifierが無ければ生成
 	cyclesMod = None
@@ -60,17 +68,44 @@ def keyingBone( bone, data_path, data_index, is_remove ):
 	if cyclesMod == None:
 		fcurve.modifiers.new(type="CYCLES")
 
+# is_remove_list配列にしたがって、keyingBoneを呼び出す処理
+def keyingBoneByRemoveList( bone, data_path, is_remove_array ):
+	for index, is_remove in enumerate(is_remove_array):
+		keyingBone( bone, data_path, index, is_remove )
 
 # 選択ボーンの固定されていないTransformにキーを打つ。
 # 固定されているTransformについているキーは削除する
 def keyingSelectBones():
 	bones = bpy.context.selected_pose_bones
+	if bones is None: return
 	for bone in bones:
 		for i in range(3):
 			keyingBone(bone, "location", i, bone.lock_location[i])
-		if bone.rotation_mode != 'QUATERNION' and bone.rotation_mode != 'AXIS_ANGLE':
-			for i in range(3):
-				keyingBone(bone, "rotation_euler", i, bone.lock_rotation[i])
+
+		euler_remove_array = None
+		qua_remove_array = None
+		axis_remove_array = None
+		if bone.rotation_mode == 'QUATERNION':
+			euler_remove_array = [ True, True, True ]
+			qua_remove_array = [
+				bone.lock_rotation[0], bone.lock_rotation[1], bone.lock_rotation[2],
+				bone.lock_rotation_w ]
+			axis_remove_array = [ True, True, True, True ]
+		elif bone.rotation_mode == 'AXIS_ANGLE':
+			euler_remove_array = [ True, True, True ]
+			qua_remove_array = [ True, True, True, True ]
+			axis_remove_array = [
+				bone.lock_rotation[0], bone.lock_rotation[1], bone.lock_rotation[2],
+				bone.lock_rotation_w ]
+		else:
+			euler_remove_array = [
+				bone.lock_rotation[0], bone.lock_rotation[1], bone.lock_rotation[2] ]
+			qua_remove_array = [ True, True, True, True ]
+			axis_remove_array = [ True, True, True, True ]
+		keyingBoneByRemoveList(bone, "rotation_euler", euler_remove_array)
+		keyingBoneByRemoveList(bone, "rotation_quaternion", qua_remove_array)
+		keyingBoneByRemoveList(bone, "rotation_axis_angle", axis_remove_array)
+
 		for i in range(3):
 			keyingBone(bone, "scale", i, bone.lock_scale[i])
 
