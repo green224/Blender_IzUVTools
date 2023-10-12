@@ -166,10 +166,26 @@ def bakeAnim( operator ):
 	return True
 
 # FBX出力する処理
-def exportFBX(file_name: StringProperty):
+def exportFBX(operator, file_name: StringProperty, anim_type: EnumProperty):
+	
+	# 出力アニメーションが全NLAの場合、NLAトラックを全アクティブにする。
+	# どうせリバートするので、これは元の状態に復元する必要はない
+	if anim_type == 'AllNLA':
+		tgt_armature = tgtArmature(operator)
+		for track in tgt_armature.animation_data.nla_tracks:
+			if track.name.startswith('[Action Stash]'): continue
+			track.mute = False
+
 	mdl_filepath = bpy.data.filepath
 	mdl_directory = os.path.dirname( mdl_filepath )
 	fbx_filepath = os.path.join( mdl_directory, file_name )
+	
+	use_nla: bool = False
+	if (anim_type == 'ActiveNLA') or (anim_type == 'AllNLA'):
+		use_nla = True
+	elif anim_type == 'AllActions':
+		use_nla = False
+	
 	bpy.ops.export_scene.fbx(
 		filepath=fbx_filepath,
 		check_existing=False,
@@ -195,8 +211,8 @@ def exportFBX(file_name: StringProperty):
 		armature_nodetype='NULL',
 		bake_anim=True,
 		bake_anim_use_all_bones=True,
-		bake_anim_use_nla_strips=True,
-		bake_anim_use_all_actions=False,
+		bake_anim_use_nla_strips= use_nla,
+		bake_anim_use_all_actions= not use_nla,
 		bake_anim_force_startend_keying=True,
 		bake_anim_step=1.0,
 		bake_anim_simplify_factor=1.0,
@@ -210,11 +226,11 @@ def exportFBX(file_name: StringProperty):
 	)
 
 # 出力処理本体
-def export( operator, context, file_name ):
+def export(operator, context, file_name: StringProperty, anim_type: EnumProperty):
 	print("[ExportFBX] Begin")
 	if not bakeAnim(operator): return False
 
-	exportFBX(file_name)
+	exportFBX(operator, file_name, anim_type)
 	print("[ExportFBX] Complete")
 
 	# 色々ぶっ壊れるのでリバートする

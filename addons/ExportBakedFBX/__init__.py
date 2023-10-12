@@ -32,7 +32,7 @@
 bl_info = {
 	"name" : "Baked FBX Exporter",
 	"author" : "Shu",
-	"version" : (2,3),
+	"version" : (2,4),
     'blender': (3, 2, 0),
     "location": "File > Import-Export",
 	"description" : "Export FBX with baked animation",
