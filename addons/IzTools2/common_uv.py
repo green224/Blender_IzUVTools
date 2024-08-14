@@ -9,7 +9,7 @@ import math
 def isPixelCenterFit(context):
 	imgEditor = context.area.spaces[0]
 	if imgEditor.uv_editor and imgEditor.image:
-		if imgEditor.uv_editor.pixel_snap_mode == "CENTER":
+		if imgEditor.uv_editor.pixel_round_mode == "CENTER":
 			return True
 		else:
 			return False
