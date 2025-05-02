@@ -31,7 +31,10 @@ def getEditingBMeshList():
 	result = []
 
 	# 選択中の全オブジェクトに対して行う
-	objs = set(bpy.context.selected_objects)
+# selected_objectsはオブジェクトモード中にしか取れない使えないように変更されたので修正。
+# そもそも選択しているオブジェクトしかエディットモードに入れないので、まずは全オブジェクトを取得でOK
+#	objs = set(bpy.context.selected_objects)
+	objs = set(bpy.context.view_layer.objects)
 
 	for obj in objs:
 
