@@ -50,8 +50,8 @@ class OperatorSet(OperatorSet_Base):
 			isCFit = isPixelCenterFit(context)
 			if isCFit is not None:
 				# SnapModeをCenterとDisableで切り替える
-				if isCFit:	imgEditor.uv_editor.pixel_snap_mode = "DISABLED"
-				else:		imgEditor.uv_editor.pixel_snap_mode = "CENTER"
+				if isCFit:	imgEditor.uv_editor.pixel_round_mode = "DISABLED"
+				else:		imgEditor.uv_editor.pixel_round_mode = "CENTER"
 				return {'FINISHED'}
 
 			# UVEditorで画像読み込み済みでない場合は操作無効

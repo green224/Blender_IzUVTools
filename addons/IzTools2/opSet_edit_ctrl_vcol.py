@@ -30,27 +30,32 @@ from bpy.props import (
 from .opSet_base import *
 from .common_uv import *
 
-# BMeshから選択中のカラーを取得する処理
-def _getSelectedColorFromBMesh(bm):
-	# 頂点カラーが無い場合は無効
-	col_layer = bm.loops.layers.color.active
-	if col_layer is None: return None
+# Meshから選択中のカラーを取得する処理
+def _getSelectedColorFromBMesh(mesh, bm):
 
-	# 選択中のカラーを取得
-	isSelected = False
-	col = None
-	for face in bm.faces:
-		for loop in face.loops:
-			if not loop.vert.select: continue
-			col = loop[col_layer]
-			isSelected = True
-			break
-		if isSelected: break
+	# コーナーカラーと頂点カラーの二種類があるので、両方から取得を行う
+	col_layer_vert = bm.verts.layers.float_color.active
+	col_layer_loop = bm.loops.layers.float_color.active
 
-	# 一つも頂点を選択していない場合は非表示
-	if not isSelected: return None
-
-	return col.copy()
+	if not col_layer_vert is None:
+		
+		# 頂点カラー
+		for vert in bm.verts:
+			if vert.select:
+				col = vert[col_layer_vert]
+				return col.copy()
+			
+	elif not col_layer_loop is None:
+		
+		# コーナーカラー
+		for face in bm.faces:
+			for loop in face.loops:
+				if loop.vert.select:
+					col = loop[col_layer_loop]
+					return col.copy()
+				
+	# 一つも頂点を選択していない、もしくはカラーがない
+	return None
 
 #-------------------------------------------------------
 
@@ -73,7 +78,7 @@ class OperatorSet(OperatorSet_Base):
 				('All','All','All'),
 				],
 				options={'HIDDEN'})
-		
+
 		def execute(self, context):
 			bmList = getEditingBMeshList()
 			
@@ -86,37 +91,50 @@ class OperatorSet(OperatorSet_Base):
 
 			# 編集中のオブジェクトのBMeshごとに処理
 			for _,bm in bmList:
-				col_layer = bm.loops.layers.color.active
+				col_layer_vert = bm.verts.layers.float_color.active
+				col_layer_loop = bm.loops.layers.float_color.active
 
-				# 頂点カラーが無い場合は何もしない
-				if col_layer is None: return {'CANCELLED'}
+				# 選択中頂点のカラーを設定。
+				# コーナーカラーと頂点カラーの二種類があるので、両方から取得を行う
+				if not col_layer_vert is None:
+					
+					# 頂点カラー
+					for vert in bm.verts:
+						if vert.select:
+							col = vert[col_layer_vert]
+							self.setColor(col, valR, valG, valB, valA, strength)
+							vert[col_layer_vert] = col
+						
+				elif not col_layer_loop is None:
+					
+					# コーナーカラー
+					for face in bm.faces:
+						for loop in face.loops:
+							if loop.vert.select:
+								col = loop[col_layer_loop]
+								self.setColor(col, valR, valG, valB, valA, strength)
+								loop[col_layer_loop] = col
 
-				# 選択中頂点のカラーを設定
-				for face in bm.faces:
-					for loop in face.loops:
-						if not loop.vert.select: continue
-						col = loop[col_layer]
-
-						if self.ch == "R":
-							col.x = lerp( col.x, valR, strength )
-						elif self.ch == "G":
-							col.y = lerp( col.y, valG, strength )
-						elif self.ch == "B":
-							col.z = lerp( col.z, valB, strength )
-						elif self.ch == "A":
-							col.w = lerp( col.w, valA, strength )
-						else:
-							col.x = lerp( col.x, valR, strength )
-							col.y = lerp( col.y, valG, strength )
-							col.z = lerp( col.z, valB, strength )
-							col.w = lerp( col.w, valA, strength )
-						loop[col_layer] = col
-			
 			# BMeshを反映
 			for obj,_ in bmList:
 				bmesh.update_edit_mesh(obj.data)
 
 			return {'FINISHED'}
+		
+		def setColor(self, col, valR, valG, valB, valA, strength):
+			if self.ch == "R":
+				col.x = lerp( col.x, valR, strength )
+			elif self.ch == "G":
+				col.y = lerp( col.y, valG, strength )
+			elif self.ch == "B":
+				col.z = lerp( col.z, valB, strength )
+			elif self.ch == "A":
+				col.w = lerp( col.w, valA, strength )
+			else:
+				col.x = lerp( col.x, valR, strength )
+				col.y = lerp( col.y, valG, strength )
+				col.z = lerp( col.z, valB, strength )
+				col.w = lerp( col.w, valA, strength )
 
 	class OpImpl_BakeLight(Operator):
 		bl_idname = "object.izt_edit_ctrl_vcol_light"
@@ -157,45 +175,67 @@ class OperatorSet(OperatorSet_Base):
 
 			# 編集中のオブジェクトのBMeshごとに処理
 			for obj,bm in bmList:
-				col_layer = bm.loops.layers.color.active
-				#normal_layer = bm.loops.layers.normal
-
-				# 頂点カラーが無い場合は何もしない
-				if col_layer is None: return {'CANCELLED'}
+				col_layer_vert = bm.verts.layers.float_color.active
+				col_layer_loop = bm.loops.layers.float_color.active
 
 				# 法線変換用行列。L2Wの回転部分の逆転置行列
 				l2w = obj.matrix_world
 				nmlL2W = l2w.to_3x3().inverted_safe().transposed()
 
-				# 選択中頂点のカラーを設定
-				for face in bm.faces:
-					for loop in face.loops:
-						if not loop.vert.select: continue
-						col = loop[col_layer]
+				# 法線を指定のカラーに設定する処理
+				def setNormal2Color(col, nml, co):
+					posW = l2w @ co
+					nmlW = nmlL2W @ nml
+					newCol = calcLight( posW, nmlW )
 
-						# 法線の取得。
-						# 表示されている法線の取得はBlenderの仕様上とても大変で
-						# 現状スマートに取得する方法が不明なので、とりあえずFlatとSmoothのみ
-						if lightShadingMode == "SMOOTH":
-							nml = loop.vert.normal
-						else:
-							nml = loop.face.normal
-						#nml = loop[normal_layer]
+					col.x = lerp( col.x, newCol, strength )
+					col.y = lerp( col.y, newCol, strength )
+					col.z = lerp( col.z, newCol, strength )
 
-						posW = l2w @ loop.vert.co
-						nmlW = nmlL2W @ nml
-						newCol = calcLight( posW, nmlW )
+				# 選択中頂点のカラーを設定。
+				# コーナーカラーと頂点カラーの二種類があるので、両方から取得を行う
+				if not col_layer_vert is None:
+					
+					# 頂点カラー
+					for vert in bm.verts:
+						if vert.select:
+							col = vert[col_layer_vert]
 
-						col.x = lerp( col.x, newCol, strength )
-						col.y = lerp( col.y, newCol, strength )
-						col.z = lerp( col.z, newCol, strength )
-						loop[col_layer] = col
+							# 法線の取得。
+							# 頂点カラーの場合は頂点からしか取得できない
+							nml = vert.normal
+
+							setNormal2Color(col, nml, vert.co)
+
+							vert[col_layer_vert] = col
+						
+				elif not col_layer_loop is None:
+					
+					# コーナーカラー
+					for face in bm.faces:
+						for loop in face.loops:
+							if not loop.vert.select: continue
+							col = loop[col_layer_loop]
+
+							# 法線の取得。
+							# 表示されている法線の取得はBlenderの仕様上とても大変で
+							# 現状スマートに取得する方法が不明なので、とりあえずFlatとSmoothのみ
+							if lightShadingMode == "SMOOTH":
+								nml = loop.vert.normal
+							else:
+								nml = loop.face.normal
+							#nml = loop[normal_layer]
+
+							setNormal2Color(col, nml, loop.vert.co)
+
+							loop[col_layer_loop] = col
 			
 			# BMeshを反映
 			for obj,_ in bmList:
 				bmesh.update_edit_mesh(obj.data)
 
 			return {'FINISHED'}
+
 
 	class OpImpl_SpoitColor(Operator):
 		bl_idname = "object.izt_edit_ctrl_vcol_spoit"
@@ -245,7 +285,8 @@ class OperatorSet(OperatorSet_Base):
 			param = context.scene.iz_uv_tool_property
 
 			# 編集中のオブジェクトのBMesh
-			bm = bmesh.from_edit_mesh(bpy.context.active_object.data)
+			mesh = bpy.context.active_object.data
+			bm = bmesh.from_edit_mesh(mesh)
 
 			# 移動などの編集とかち合うと、bMeshのreadonly参照を行うだけで
 			# bMesh自体が破壊されるという不具合が起きる（多分バグ?）ので
@@ -253,7 +294,7 @@ class OperatorSet(OperatorSet_Base):
 			bm = bm.copy()
 
 			# 選択中のカラーを取得
-			col = _getSelectedColorFromBMesh(bm)
+			col = _getSelectedColorFromBMesh(mesh, bm)
 
 			# バグるのを回避するためにコピーしたBMeshを開放
 			bm.free()

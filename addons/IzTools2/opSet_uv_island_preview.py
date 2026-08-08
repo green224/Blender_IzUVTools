@@ -29,7 +29,6 @@ from bpy.props import (
 		)
 
 import gpu
-import bgl
 from gpu_extras.batch import batch_for_shader
 from gpu_extras.presets import draw_circle_2d
 
@@ -177,28 +176,30 @@ class OperatorSet(OperatorSet_Base):
 
 		# シェーダおよび描画用バッチの初期化
 		if cls.__shader_Offsc is None:
-			vertex_shader = '''
-				in vec2 uv;
-				uniform float texSize;
-				uniform vec2 pixelOffset;
+			shader_info = gpu.types.GPUShaderCreateInfo()
+			
+			shader_info.push_constant('FLOAT', "texSize")
+			shader_info.push_constant('VEC2', "pixelOffset")
+			shader_info.push_constant('VEC4', "color")
+			shader_info.vertex_in(0, 'VEC2', "uv")
+			shader_info.fragment_out(0, 'VEC4', "FragColor")
 
+			shader_info.vertex_source('''
 				void main()
 				{
 					vec2 pos = uv + pixelOffset / texSize;
 					gl_Position = vec4(pos*2-1, 0.0, 1.0);
 				}
-			'''
-			fragment_shader = '''
-				uniform vec4 color;
-
-				out vec4 FragColor;
-
+			''')
+			shader_info.fragment_source('''
 				void main()
 				{
 					FragColor = color;
 				}
-			'''
-			cls.__shader_Offsc = gpu.types.GPUShader(vertex_shader, fragment_shader)
+			''')
+
+			cls.__shader_Offsc = gpu.shader.create_from_info(shader_info)
+			del shader_info
 
 		# レンダリング先のテクスチャサイズ
 		param = bpy.context.scene.iz_uv_tool_property
@@ -277,11 +278,17 @@ class OperatorSet(OperatorSet_Base):
 
 		# シェーダおよび描画用バッチの初期化
 		if cls.__shader_ImgEdt is None:
-			vertex_shader = '''
-				// ModelViewProjectionMatrix : source/blender/gpu/shaders/gpu_shader_2D_vert.glsl
-				uniform mat4 ModelViewProjectionMatrix;
+			shader_info = gpu.types.GPUShaderCreateInfo()
 
-				in vec2 uv;
+			# ModelViewProjectionMatrix : source/blender/gpu/shaders/gpu_shader_2D_vert.glsl
+			shader_info.push_constant('MAT4', "ModelViewProjectionMatrix")
+			shader_info.push_constant('FLOAT', "texSize")
+			shader_info.push_constant('FLOAT', "fillColRate")
+			shader_info.sampler(0, 'FLOAT_2D', "image")
+			shader_info.vertex_in(0, 'VEC2', "uv")
+			shader_info.fragment_out(0, 'VEC4', "FragColor")
+
+			shader_info.vertex_source('''
 				out vec2 uvInterp;
 
 				void main()
@@ -289,14 +296,9 @@ class OperatorSet(OperatorSet_Base):
 					uvInterp = uv;
 					gl_Position = ModelViewProjectionMatrix * vec4(uv, 0.0, 1.0);
 				}
-			'''
-			fragment_shader = '''
-				uniform sampler2D image;
-				uniform float texSize;
-				uniform float fillColRate;
-
+			''')
+			shader_info.fragment_source('''
 				in vec2 uvInterp;
-				out vec4 FragColor;
 
 				vec4 fetchColor(vec2 offset) {
 					// gpuモジュールにはフィルタリングの設定がないので
@@ -319,8 +321,11 @@ class OperatorSet(OperatorSet_Base):
 						isSame(c0,c3) && isSame(c0,c4)
 						? c0*fillColRate : c0;
 				}
-			'''
-			cls.__shader_ImgEdt = gpu.types.GPUShader(vertex_shader, fragment_shader)
+			''')
+
+			cls.__shader_ImgEdt = gpu.shader.create_from_info(shader_info)
+			del shader_info
+
 			cls.__batch_ImgEdt = batch_for_shader(
 				cls.__shader_ImgEdt, 'TRI_FAN',
 				{

@@ -61,7 +61,7 @@ def getSelectedUVVerts(bMeshes):
 			for loop in face.loops:
 				## 選択されているUVに対して、UV情報と頂点情報のタプルを格納
 				uv = loop[uv_layer]
-				if uv.select: result.append( (uv, loop.vert) )
+				if loop.uv_select_vert: result.append( (uv, loop.vert) )
 
 	return result
 

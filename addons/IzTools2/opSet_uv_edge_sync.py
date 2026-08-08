@@ -30,7 +30,6 @@ from bpy.props import (
 		)
 
 import gpu
-import bgl
 from gpu_extras.batch import batch_for_shader
 from gpu_extras.presets import draw_circle_2d
 
@@ -341,24 +340,26 @@ class OperatorSet(OperatorSet_Base):
 
 		# シェーダおよび描画用バッチの初期化
 		if cls.__shader is None:
-			vertex_shader = '''
-				// ModelViewProjectionMatrix : source/blender/gpu/shaders/gpu_shader_2D_vert.glsl
-				uniform mat4 ModelViewProjectionMatrix;
-				in vec2 uv;
-				in vec3 col;
-				out vec3 outCol;
+			shader_info = gpu.types.GPUShaderCreateInfo()
 
+			# ModelViewProjectionMatrix : source/blender/gpu/shaders/gpu_shader_2D_vert.glsl
+			shader_info.push_constant('MAT4', "ModelViewProjectionMatrix")
+			shader_info.push_constant('FLOAT', "alpha")
+#			shader_info.push_constant('FLOAT', "time")
+			shader_info.vertex_in(0, 'VEC2', "uv")
+			shader_info.vertex_in(1, 'VEC3', "col")
+			shader_info.fragment_out(0, 'VEC4', "FragColor")
+			shader_info.vertex_source('''
+				out vec3 outCol;
+				
 				void main() {
 					gl_Position = ModelViewProjectionMatrix * vec4(uv, 0.0, 1.0);
 					outCol = col;
 				}
-			'''
-			fragment_shader = '''
-//				uniform float time;
-				uniform float alpha;
+			''')
+			shader_info.fragment_source('''
 				in vec3 outCol;
-				out vec4 FragColor;
-
+				
 				void main() {
 					FragColor = vec4(outCol, alpha);
 //					FragColor = vec4(
@@ -366,8 +367,10 @@ class OperatorSet(OperatorSet_Base):
 //						mix( 0, 1, sin(time*2)/2+0.5 )
 //					);
 				}
-			'''
-			cls.__shader = gpu.types.GPUShader(vertex_shader, fragment_shader)
+			''')
+
+			cls.__shader = gpu.shader.create_from_info(shader_info)
+			del shader_info
 
 		bmList = getEditingBMeshList()
 
@@ -394,6 +397,12 @@ class OperatorSet(OperatorSet_Base):
 #			alpha = param.edge_sync_alpha
 
 			cls.__shader.bind()
+
+			model_view = gpu.matrix.get_model_view_matrix()
+			projection = gpu.matrix.get_projection_matrix()
+			mvp = projection @ model_view
+			cls.__shader.uniform_float("ModelViewProjectionMatrix", mvp)
+
 #			cls.__shader.uniform_float("alpha", alpha)
 			cls.__shader.uniform_float("alpha", 1.0)
 #			cls.__shader.uniform_float("time", time.time() - cls.__beginTCnt)
@@ -428,7 +437,7 @@ class OperatorSet(OperatorSet_Base):
 				}
 			)
 
-			bgl.glLineWidth(3)
+			gpu.state.line_width_set(3)
 			batch.draw(cls.__shader)
 
 		# バグるのを回避するためにコピーしたBMeshを開放
@@ -448,9 +457,9 @@ class OperatorSet(OperatorSet_Base):
 				srcUV0 = None
 				srcUV1 = None
 				for loop in edge.link_loops:
-					srcUV0 = loop[uv_layer]
-					srcUV1 = loop.link_loop_next[uv_layer]
-					if srcUV0.select and srcUV1.select:
+					if loop.uv_select_edge:
+						srcUV0 = loop[uv_layer]
+						srcUV1 = loop.link_loop_next[uv_layer]
 						isSelect = True
 						selLoop = loop
 						break
@@ -458,6 +467,8 @@ class OperatorSet(OperatorSet_Base):
 				if isSelect:
 					#それぞれのエッジに対して、対応するエッジを抽出する
 					for loop in edge.link_loops:
+						if selLoop == loop: continue
+
 						dstUV1 = loop[uv_layer]
 						dstUV0 = loop.link_loop_next[uv_layer]
 
@@ -465,7 +476,7 @@ class OperatorSet(OperatorSet_Base):
 						if srcUV0.uv == dstUV0.uv and srcUV1.uv == dstUV1.uv: continue
 						if srcUV0.uv == dstUV1.uv and srcUV1.uv == dstUV0.uv: continue
 						
-						if isShowSelEdge or not dstUV0.select or not dstUV1.select:
+						if isShowSelEdge or not loop.uv_select_edge:
 							result.append( (srcUV0, srcUV1, dstUV0, dstUV1, edge) )
 
 		return result
